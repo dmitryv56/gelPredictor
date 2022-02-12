@@ -98,15 +98,18 @@ def main():
 
     roses_field = RosesField(field_width, field_height, purchased_squares, location_roses, location_costs, garden_width,
                              garden_height)
+    print(roses_field.__str__())
+    logger.info(roses_field.__str__())
 
-    print ("Garden size: {} x {}".format(roses_field.garden_height,roses_field.garden_width) )
     print(roses_field.find_best_garden(1.0))
     print(roses_field.find_best_garden(2.0))
     print(roses_field.find_best_garden(5.0))
     print(roses_field.find_best_garden(20.0))
 
     roses_field.set_garden_shape(2, 2)
-    print("Garden size: {} x {}".format(roses_field.garden_height, roses_field.garden_width))
+    print(roses_field.__str__())
+    logger.info(roses_field.__str__())
+
     print(roses_field.find_best_garden(1.0))
     print(roses_field.find_best_garden(2.0))
     print(roses_field.find_best_garden(5.0))

@@ -81,7 +81,17 @@ class RosesField(IRosesField):
         return (r,c)
 
     def __str__(self):
-        pass
+        smsg =f""" 
+        
+Fields: {self.field_height } x {self.field_width}  
+Garden: {self.garden_height} x {self.garden_width}
+Roses location   : {self.location_roses}
+Cost             : {self.location_costs}
+Purchased squares: {self.purchased_squares}
+
+
+              """
+        return smsg
 
     def fields_info2matrix(self):
         self.matrix_location=[[0 for j in range(self.field_width) ]  for i in range(self.field_height)]
