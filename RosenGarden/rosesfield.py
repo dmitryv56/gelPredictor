@@ -17,7 +17,7 @@
     The class should implement IRoseField interface.
 """
 import logging
-from  src.IRosesField import IRosesField
+from IRosesField import IRosesField
 
 logger=logging.getLogger(__name__)
 

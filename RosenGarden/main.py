@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 
-import os
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-from src.rosesfield import RosesField
+from rosesfield import RosesField
 
 MAX_LOG_SIZE_BYTES = 1024 * 1024
 BACKUP_COUNT = 2

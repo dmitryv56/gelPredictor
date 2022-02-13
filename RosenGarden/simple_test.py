@@ -4,16 +4,15 @@
 This test checks what field size are greater then garden size.
 In oreder to run this test in command line:
  cd <path to project>/RosenGarden
- python3 -m unittest testing/simple_test.py
+ python3 -m unittest simple_test.py
 
 """
 
 import unittest
-import os
 from unittest import TestCase
 from main import init_task
 
-from src.rosesfield import RosesField
+from rosesfield import RosesField
 
 class TestGarden(TestCase):
     def test_init_good(self):
