@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import logging
+from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -78,7 +79,7 @@ class HyperParams(object):
 class CNN(object):
 
 
-    def __init__(self ):
+    def __init__(self , model_repository: Path =None, log_folder:Path=None, chart_folder:Path=None):
         self.cnn_model=None
         self.hp =HyperParams(num_classes=0 )
         self.input_shape=()
@@ -87,6 +88,12 @@ class CNN(object):
         self.train_Y = None
         self.test_X = None
         self.test_Y = None
+        if model_repository is None:
+            self.model_repository =  Path("train_dropout").with_suffix(".h5py")
+        else:
+            self.model_repository = Path(model_repository)/Path("train_dropout").with_suffix(".h5py")
+        self.log_folder = log_folder
+        self.chart_folder=chart_folder
 
     def model(self):
 
@@ -115,7 +122,11 @@ class CNN(object):
         self.cnn_model.add(Dense(self.hp.num_classes, activation='softmax'))
 
         self.log.info(" Convolution Neural Net")
-        with open("model.log", 'w') as fw:
+        if self.log_folder is None:
+            model_log ="cnn_nodel.txt"
+        else:
+            model_log =Path(self.log_folder /"cnn_nodel").with_suffix(".txt")
+        with open(model_log, 'w') as fw:
            self.cnn_model.summary(print_fn=lambda x: fw.write(x + '\n'))
 
         self.cnn_model.compile(loss=keras.losses.categorical_crossentropy, optimizer=keras.optimizers.Adam(),
@@ -151,12 +162,15 @@ class CNN(object):
         # self.test_X = self.test_X / 255.
 
         self.train_Y_one_hot = to_categorical(self.train_Y)
+        (ntrain,mtrain)=self.train_Y_one_hot.shape
         self.test_Y_one_hot = to_categorical(self.test_Y)
+        (ntest, mtest) = self.test_Y_one_hot.shape
 
+        self.log.info("test_Y_one_hot.shape : {}".format(self.test_Y_one_hot.shape))
+        if (mtest<mtrain):
+            self.test_Y_one_hot = np.hstack((self.test_Y_one_hot,np.zeros((ntest, mtrain -mtest))))
+            self.log.info("test_Y_one_hot.shape after correction: {}".format(self.test_Y_one_hot.shape))
         # Display the change for category label using one-hot encoding
-        self.log.info("\Original        One-hot encoding\n")
-        for i in range(self.hp.num_classes):
-            self.log.info("{} <=> {}".format(self.train_Y,self.train_Y_one_hot))
 
         return
 
@@ -176,13 +190,29 @@ Validation labels shape: {self.valid_label.shape}
         self.train_dropout = self.cnn_model.fit(self.train_X, self.train_label, batch_size=self.hp.batch_size,
                                            epochs=self.hp.epochs, verbose=1,
                                            validation_data=(self.valid_X, self.valid_label))
-        self.cnn_model.save("train_dropout.h5py")
+
+        self.cnn_model.save(self.model_repository)
+        self.log.info("Trained mode saved : {}".format(self.model_repository))
 
         self.test_eval = self.cnn_model.evaluate(self.test_X, self.test_Y_one_hot, verbose=1)
+        msg = f"""
+Test loss     :  {self.test_eval[0]}
+Test accuracy :  {self.test_eval[1]}
 
+"""
+        print(msg)
+        self.log.info(msg)
         return
 
     def AccuracyChart(self):
+
+        if self.chart_folder is None:
+            train_val_acc="Training_Validation_Accuracy.png"
+            train_val_loss = "Training_Validation_Loss.png"
+        else:
+            train_val_acc = Path(self.chart_folder/Path("Training_Validation_Accuracy")).with_suffix(".png")
+            train_val_loss = Path(self.chart_folder/Path("Training_Validation_Loss")).with_suffix(".png")
+
         accuracy = self.train_dropout.history['accuracy']
         val_accuracy = self.train_dropout.history['val_accuracy']
         loss = self.train_dropout.history['loss']
@@ -192,14 +222,15 @@ Validation labels shape: {self.valid_label.shape}
         plt.plot(epochs, val_accuracy, 'b', label='Validation accuracy')
         plt.title('Training and validation accuracy')
         plt.legend()
-        plt.savefig("CNN_accuracy.png")
+
+        plt.savefig(train_val_acc)
         plt.close("all")
         plt.figure()
         plt.plot(epochs, loss, 'bo', label='Training loss')
         plt.plot(epochs, val_loss, 'b', label='Validation loss')
         plt.title('Training and validation loss')
         plt.legend()
-        plt.savefig("CNN_loss.png")
+        plt.savefig(train_val_loss)
         plt.close("all")
 
 
