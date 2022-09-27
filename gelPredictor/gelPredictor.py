@@ -14,7 +14,7 @@ from sys_util.parseConfig import LOG_FOLDER_NAME, MAIN_SYSTEM_LOG, SERVER_LOG, C
 PATH_ROOT_FOLDER, PATH_LOG_FOLDER , PATH_MAIN_LOG , PATH_SERVER_LOG, PATH_CHART_LOG , \
 PATH_REPOSITORY , PATH_DATASET_REPOSITORY, PATH_DESCRIPTOR_REPOSITORY, \
 MAX_LOG_SIZE_BYTES, BACKUP_COUNT, PATH_TO_DATASET, DATA_NORMALIZATION, OVERLAP, N_STEPS, CONTINUOUS_WAVELET, \
-NUM_CLASSES, NUM_SCALES, printInfo
+NUM_CLASSES, NUM_SCALES, SAMPLING, TS_NAME, TS_TIMESTAMP_LABEL, SEGMENT_SIZE, printInfo
 from sys_util.utils import setOutput
 # ------------------------------------------------------------------------------------------------------------------
 
@@ -34,12 +34,14 @@ logger.info(printInfo())
 if __name__ == '__main__':
    pass
 
-   model_repository, log_folder, chart_log = setOutput(model_repository=PATH_REPOSITORY,
+   _, log_folder, chart_log = setOutput(model_repository=PATH_REPOSITORY,
                                                        log_folder=PATH_LOG_FOLDER, chart_log=PATH_CHART_LOG)
+   #
 
-   ds=Dataset(pathTo = PATH_TO_DATASET, ts = "WindTurbine_Power", dt = "Date Time", sampling= 10 * 60,
+
+   ds=Dataset(pathTo = PATH_TO_DATASET, ts = TS_NAME, dt = TS_TIMESTAMP_LABEL, sampling= SAMPLING,
               n_steps = N_STEPS, overlap = OVERLAP, continuous_wavelet = CONTINUOUS_WAVELET, norm = DATA_NORMALIZATION,
-              num_classes = NUM_CLASSES, model_repository = model_repository, log_folder = log_folder,
+              num_classes = NUM_CLASSES, model_repository = PATH_REPOSITORY, log_folder = log_folder,
               chart_log = chart_log)
 
    ds.readDataset()
@@ -48,7 +50,8 @@ if __name__ == '__main__':
    ds.__str__()
    ds.createSegmentLst()
    ds.ExtStatesExtraction()
-   ds.logClasses()
+   ds.initHMM_logClasses()
+   ds.hmm.fit(ds.df[ds.ts_name], ds.segment_size)
    ds.scalogramEstimation()
 
    # prepare raw data for Convolution Neural Net
@@ -59,7 +62,7 @@ if __name__ == '__main__':
 
 
    Cnn=CNN()
-
+   Cnn.chart_folder = chart_log
    Cnn.prepare_train_data( train_X=X[:-4,:,:], train_Y=Y[:-4], test_X=X[-4:,:,:], test_Y=Y[-4:])
    Cnn.model()
    Cnn.fit_cnn()

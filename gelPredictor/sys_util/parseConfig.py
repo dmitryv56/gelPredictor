@@ -5,10 +5,10 @@ from pathlib import Path
 
 # Paths and e.t.c
 
-LOG_FOLDER_NAME="log"
-MAIN_SYSTEM_LOG="main"
+LOG_FOLDER_NAME="log_electricity_5"
+MAIN_SYSTEM_LOG="main_electricity_5"
 SERVER_LOG="server"
-CHART_LOG="chart"
+CHART_LOG="chart_electricity_5"
 
 PATH_ROOT_FOLDER = Path(Path(__file__).parent.parent.absolute())
 PATH_LOG_FOLDER = Path(PATH_ROOT_FOLDER/LOG_FOLDER_NAME)
@@ -28,26 +28,35 @@ MAX_LOG_SIZE_BYTES=5 * 1024 * 1024
 BACKUP_COUNT=2
 
 # PATH_TO_DATASET='~/LaLaguna/stgelpDL/dataLaLaguna/ElHiero2018_2022.csv'
-PATH_TO_DATASET= Path(PATH_DATASET_REPOSITORY / "ElHiero_24092020_27102020.csv")
-
+# PATH_TO_DATASET= Path(PATH_DATASET_REPOSITORY / "ElHiero_24092020_27102020.csv")
+PATH_TO_DATASET= Path(PATH_DATASET_REPOSITORY / "Electricity_generation_in_Germany_2020_2022").with_suffix(".csv")
 
 # CNN Hyperparams
 BATCH_SIZE = 64
 EPOCHS = 10
-NUM_CLASSES = 10
+NUM_CLASSES = 5
 ALFA_RELU =0.1
 DROPOUT = 0.25
 DENSE_INPUT =128
 NUM_KERNELS = 32
 
+# TS
+TS_NAME = "Wind_offshore_50Hertz"
+TS_TIMESTAMP_LABEL = "Date Time"
+
 # TS hypeparameters
-OVERLAP = 6   # sigments overlap. If 0 then the sigments are adjacent and number of segments over TS is [n/n_step]
-              # If 0 < overlap < n_step then  number of segment is the following sum
-              #  while (n-k*overlap<=n_step): nn=nn+[n-k*overlap)/n_step] , where k=0,1,..
-N_STEPS = 48                   # size of segments over ts
-NUM_SCALES =16                 # scale for wavelet
+SAMPLING = 15 * 60
+SEGMENT_SIZE = 98              # size of segments over ts. The segment are being transformed to scalograms.
+OVERLAP = 0                    # sigments overlap. If 0 then the sigments are adjacent and number of segments over TS
+                               # is [n/n_step].
+                               # If 0 < overlap < n_step then  number of segment is the following sum
+                               #  while (n-k*overlap<=n_step):
+                               #         nn=nn+[n-k*overlap)/n_step] , where k=0,1,..
+N_STEPS = 48                   # size of sliding block over ts. They form learning-data inputs for multilayer and LSTM
+                               # neural nets.
+NUM_SCALES = 16                # scale for wavelet
 DATA_NORMALIZATION = 'norm'    # 'norm' -normalazation 0.0-1.0; 'stat'-statistical nomalization; 'other' -no normalization
-CONTINUOUS_WAVELET = 'mexh'     # see in imported 'pywt'-package
+CONTINUOUS_WAVELET = 'mexh'    # see in imported 'pywt'-package
 
 
 
@@ -72,9 +81,13 @@ Max. Log Size(Bytes)       : {MAX_LOG_SIZE_BYTES}
 Backup Count               : {BACKUP_COUNT}
 
 Path to Dataset            : {PATH_TO_DATASET}
+Time Series Name           : {TS_NAME}
+Timestamp Label            : {TS_TIMESTAMP_LABEL}
 
-Tine Series hyper-parameters
+Time Series hyper-parameters
+Sampling                   : {SAMPLING} sec
 Segment Size(n_step)       : {N_STEPS}
+Segment Size for Scalogram : {SEGMENT_SIZE}
 Overlap of Segments        : {OVERLAP}
 Data Normalization         : {DATA_NORMALIZATION}
 Continous Wavelet          : {CONTINUOUS_WAVELET}
