@@ -64,8 +64,11 @@ msg=print(train_X.shape,valid_X.shape,train_label.shape,valid_label.shape)
 logger.info(msg)
 
 class HyperParams(object):
+    """ HyperParams docstrings go here."""
 
     def __init__(self, num_classes:int = NUM_CLASSES):
+        """ __init__ method docstrings go here."""
+
         self.epochs =EPOCHS
         self.batch_size =BATCH_SIZE
         self.num_classes=num_classes
@@ -77,9 +80,11 @@ class HyperParams(object):
         self.pool_size = (2,2)
 
 class CNN(object):
-
+    """ CNN class docstring go here."""
 
     def __init__(self , model_repository: Path =None, log_folder:Path=None, chart_folder:Path=None):
+        """ __init__ method docstrings go here."""
+
         self.cnn_model=None
         self.hp =HyperParams(num_classes=0 )
         self.input_shape=()
@@ -96,6 +101,28 @@ class CNN(object):
         self.chart_folder=chart_folder
 
     def model(self):
+        """ Creates Convolution Neural Net model with hardcoded structure.
+        - Conv2D
+        - Relu
+        - MaxPolling2D
+        - Dropout
+        - Conv2d
+        - Relu
+        - MaxPolling2D
+        - Dropout
+        - Conv2d
+        - Relu
+        - MaxPolling2D
+        - Dropout
+        - Flatten
+        - Dense
+        - Relu
+        - Dropout
+        - Dense
+        Logs to text file.
+        Compiles model.
+        The model is a member of class cnn_model of a tf.keras.Model.Sequential type.
+        """
 
         if self.train_X is None :
             self.log.error("Exit! No input data!")
@@ -136,7 +163,8 @@ class CNN(object):
 
     def prepare_train_data(self, train_X:np.ndarray = None,train_Y:np.ndarray = None, test_X: np.ndarray = None,
                            test_Y:np.ndarray = None):
-        pass
+        """ Prepares train data for model learning. """
+
         (k,n1,n2)=train_X.shape
         self.log.info('Training data shape : {}  -  {}'.format( train_X.shape, train_Y.shape))
 
@@ -149,7 +177,6 @@ class CNN(object):
         self.hp.num_classes = len(classes)
         self.log.info('Total number of outputs : {}'.format( self.hp.num_classes))
         self.log.info('Output classes : {}'.format(classes))
-
 
         self.train_X = self.train_X.reshape(-1, n1, n2, 1)
         self.test_X = self.test_X.reshape(-1, n1, n2, 1)
@@ -175,6 +202,10 @@ class CNN(object):
         return
 
     def fit_cnn(self):
+        """ Fits cnn-model along train data and evaluates along valid data.
+        Saves the traind model.
+        Examones the model along a test data. """
+
         self.train_X, self.valid_X, self.train_label, self.valid_label = train_test_split(self.train_X,
                                                     self.train_Y_one_hot, test_size=0.2, random_state=13)
         msg = f""" 
@@ -185,21 +216,23 @@ Train labels shape:      {self.train_label.shape}
 Validation labels shape: {self.valid_label.shape}
 
         """
+
         self.log.info(msg)
 
-        self.train_dropout = self.cnn_model.fit(self.train_X, self.train_label, batch_size=self.hp.batch_size,
-                                           epochs=self.hp.epochs, verbose=1,
+        self.train_dropout = self.cnn_model.fit(self.train_X, self.train_label, batch_size = self.hp.batch_size,
+                                           epochs = self.hp.epochs, verbose = 1,
                                            validation_data=(self.valid_X, self.valid_label))
 
         self.cnn_model.save(self.model_repository)
-        self.log.info("Trained mode saved : {}".format(self.model_repository))
+        self.log.info("Trained model saved into {}".format(self.model_repository))
 
         self.test_eval = self.cnn_model.evaluate(self.test_X, self.test_Y_one_hot, verbose=1)
+
         msg = f"""
 Test loss     :  {self.test_eval[0]}
 Test accuracy :  {self.test_eval[1]}
-
 """
+
         print(msg)
         self.log.info(msg)
         return

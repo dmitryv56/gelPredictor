@@ -211,9 +211,6 @@ def getEvalSequenceStartIndex(n_train:int=64, n_eval:int=36, n_test:int=0)->int:
     return rn
 
 
-
-
-
 if __name__ == "__main__":
 
     pass

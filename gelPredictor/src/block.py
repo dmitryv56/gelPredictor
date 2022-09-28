@@ -10,9 +10,12 @@ from sys_util.utils import simpleScalingImgShow
 logger = logging.getLogger(__name__)
 
 class Block(object):
+    """ Class"""
 
     def __init__(self, x:np.array=None, scales:list =[],wav:object=None, sampling:int=10*60, timestamp:str="",
                  index:int=-1, isTrain:bool = True, desire:int=-1):
+        """Constructor"""
+
         self.log=logger
         self.x = np.array(x.tolist())
         self.sampling = sampling
@@ -27,7 +30,8 @@ class Block(object):
 
 
     def scalogramEstimation(self):
-        pass
+        """pass"""
+
         self.scalogram, self.freqs = pywt.cwt(self.x, self.scales,self.wav)
         title="Scalogram_State_{}_block_{}_Timestamp_{}".format(self.desire,self.index,self.timestamp)
         # simpleScalingImgShow(scalogram = self.scalogram, index=self.index, title = title)

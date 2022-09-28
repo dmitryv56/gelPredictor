@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-""" DAU (Data Aqusition Unit)"""
+""" DAU (Data Aqusiation Unit)"""
 
 from pathlib import Path
 import matplotlib.pyplot as plt
@@ -23,12 +23,15 @@ VAL_RATIO = 0.25
 
 
 class Dau(object):
-    """Data Aquisiation Unit is responsible for communicating with the data source."""
+    """Data Aquisiation Unit is responsible for communicating with the data source.
+    The class contains all hypeparameters for time series processing.
+    """
 
     def __init__(self,ts: str = "",dt: str = "Date Time", sampling: int = 10*60, n_steps: int = 144,
                  segment_size:int = 96,norm: str = "stat", overlap: int = 0, continuous_wavelet: str = 'mexh',
                  num_classes:int = 4, num_scales:int = 16, model_repository:Path = None,  log_folder:Path = None,
                  chart_log: Path = None):
+        """ Constructor """
 
         self.log=logger
         self.ts_name = ts
@@ -54,11 +57,39 @@ class Dau(object):
 
 
 class Dataset(Dau):
+    """ Class for csv -file reading and processing.
+    Class members:
+    pathToCsv - path to file with historical observations.
+    df - pandas' DataFrame.
+    y - time series (TS), historical observations.
+    dt - time labels (timestamps) for observation.
+    n - size of TS.
+    mean, std,min, max -simple stat.parameters of TS.
+    n_train, n_val, n_test -split TS of size n on train sequence of size n_train, validation and test sequences.
+    n_train_blocks, n_val_blocks - TS splits on segments (blocks) are using for mid term forecasting.
+    lstBlocks - the list which contains block objects (implementation of Block class.
+    lstOffsetSegment -the which contains the offset of segments in  TS for each block.
+    hmm - hidden markov model object
+
+    Class methods:
+    __init__  - constructor
+    __str__
+    readDataset
+    data_normalization
+    data_inv_normalization
+    setTrainValTest
+    createSegmentLst
+    ExtStatesExtraction
+    Data4CNN
+    initHMM_logClasses
+    scalogramEstimation
+    """
 
     def __init__(self, pathTo:str = "", ts:str = "", dt:str = "Date Time", sampling:int = 10*60, n_steps:int = 144,
                  segment_size:int = 96, norm:str = "stat", overlap:int = 0, continuous_wavelet: str = 'mexh',
                  num_classes:int = 4, num_scales:int = 16, model_repository:Path = PATH_REPOSITORY,
                  log_folder:Path = PATH_LOG_FOLDER, chart_log: Path = PATH_CHART_LOG):
+        """ Constructor """
 
 
         super().__init__(ts = ts, dt = dt,sampling = sampling, n_steps = n_steps, segment_size = segment_size,
@@ -227,9 +258,9 @@ The overlap                                  : {self.overlap}
 
     def ExtStatesExtraction(self):
 
-        if len(self.lstOffsetSegment )==0:
-            self.StatesExtraction()
-            return
+        # if len(self.lstOffsetSegment )==0:
+        #     self.StatesExtraction()
+        #     return
 
         X=np.zeros(shape=(len(self.lstOffsetSegment),self.segment_size))
         (n,m) =X.shape

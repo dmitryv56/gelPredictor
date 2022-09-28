@@ -1,5 +1,7 @@
 #! /usr/bin/env python3
 
+import sys
+from os import getcwd
 import configparser
 from pathlib import Path
 
@@ -10,7 +12,15 @@ MAIN_SYSTEM_LOG="main_electricity_5"
 SERVER_LOG="server"
 CHART_LOG="chart_electricity_5"
 
-PATH_ROOT_FOLDER = Path(Path(__file__).parent.parent.absolute())
+
+if sys.platform == 'win32':
+    PATH_ROOT_FOLDER = Path(Path(Path(getcwd()).drive))
+elif sys.platform == 'linux':
+    PATH_ROOT_FOLDER = Path(Path(__file__).parent.parent.absolute())
+else:
+    print("Unknown platform. Exit...")
+    sys.exit(1)
+
 PATH_LOG_FOLDER = Path(PATH_ROOT_FOLDER/LOG_FOLDER_NAME)
 PATH_LOG_FOLDER.mkdir(parents=True, exist_ok=True)
 PATH_MAIN_LOG = Path(PATH_LOG_FOLDER/MAIN_SYSTEM_LOG).with_suffix(".log")
@@ -18,10 +28,11 @@ PATH_SERVER_LOG = Path(PATH_LOG_FOLDER/SERVER_LOG).with_suffix(".log")
 PATH_CHART_LOG = Path(PATH_LOG_FOLDER/CHART_LOG).with_suffix(".log")
 
 PATH_REPOSITORY = Path(PATH_ROOT_FOLDER / "model_Repository")
-PATH_REPOSITORY.mkdir(parents=True, exist_ok=True)
 PATH_DATASET_REPOSITORY = Path(PATH_ROOT_FOLDER / "dataset_Repository")
-PATH_DATASET_REPOSITORY.mkdir(parents=True, exist_ok=True)
 PATH_DESCRIPTOR_REPOSITORY = Path(PATH_ROOT_FOLDER / "descriptor_Repository")
+
+PATH_REPOSITORY.mkdir(parents=True, exist_ok=True)
+PATH_DATASET_REPOSITORY.mkdir(parents=True, exist_ok=True)
 PATH_DESCRIPTOR_REPOSITORY.mkdir(parents=True, exist_ok=True)
 
 MAX_LOG_SIZE_BYTES=5 * 1024 * 1024
