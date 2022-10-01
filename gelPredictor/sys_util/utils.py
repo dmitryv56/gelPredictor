@@ -37,9 +37,13 @@ def execution_time(function):
 def simpleScalingImgShow(scalogram:object=None, index:int=0,title:str="",file_png:str="xx.png"):
 
     fig,ax = plt.subplots()
-
-    ax.imshow(scalogram, extent=[-1, 1, 1, 31], cmap='PRGn', aspect='auto', vmax=abs(scalogram).max(),
-               vmin=-abs(scalogram).max())
+    (scale,shift) = scalogram.shape
+    extent_lst=[0,shift,1,scale]
+    ax.imshow(scalogram,
+              extent=extent_lst, # extent=[-1, 1, 1, 31],
+              cmap='PRGn', aspect='auto',
+              vmax=abs(scalogram).max(),
+              vmin=-abs(scalogram).max())
     ax.set_title(title)
     ax.set_xlabel("Related Time Series")
     ax.set_ylabel("Scales")

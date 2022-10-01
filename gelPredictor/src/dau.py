@@ -291,14 +291,7 @@ The overlap                                  : {self.overlap}
                title = "Scalogram  Center Class_{}".format(i)
                file_png = str( Path( Path(self.chart_log)/Path(title)).with_suffix(".png"))
                simpleScalingImgShow(scalogram = blck.scalogram, index=i, title = title, file_png=file_png)
-
-
-
-
-
-
-
-
+        return
 
     def Data4CNN(self)->(np.ndarray,np.ndarray):
         n=len(self.lstBlocks)

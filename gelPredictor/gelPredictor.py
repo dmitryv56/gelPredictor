@@ -9,6 +9,7 @@ from pathlib import Path
 
 from src.dau import Dataset
 from src.cnn import  CNN
+from src.shtrm import ShortTerm
 from sys_util.parseConfig import LOG_FOLDER_NAME, MAIN_SYSTEM_LOG, SERVER_LOG, CHART_LOG, \
 PATH_ROOT_FOLDER, PATH_LOG_FOLDER , PATH_MAIN_LOG , PATH_SERVER_LOG, PATH_CHART_LOG , \
 PATH_REPOSITORY , PATH_DATASET_REPOSITORY, PATH_DESCRIPTOR_REPOSITORY, \
@@ -39,9 +40,9 @@ if __name__ == '__main__':
 
 
    ds=Dataset(pathTo = PATH_TO_DATASET, ts = TS_NAME, dt = TS_TIMESTAMP_LABEL, sampling= SAMPLING,
-              n_steps = N_STEPS, overlap = OVERLAP, continuous_wavelet = CONTINUOUS_WAVELET, norm = DATA_NORMALIZATION,
-              num_classes = NUM_CLASSES, model_repository = PATH_REPOSITORY, log_folder = log_folder,
-              chart_log = chart_log)
+              segment_size = SEGMENT_SIZE, n_steps = N_STEPS, overlap = OVERLAP,
+              continuous_wavelet = CONTINUOUS_WAVELET, norm = DATA_NORMALIZATION, num_classes = NUM_CLASSES,
+              model_repository = PATH_REPOSITORY, log_folder = log_folder, chart_log = chart_log)
 
    ds.readDataset()
    ds.data_normalization()
@@ -67,6 +68,11 @@ if __name__ == '__main__':
    Cnn.fit_cnn()
 
    Cnn.AccuracyChart()
+
+   shrtTerm=ShortTerm(num_classes=ds.num_classes, segment_size=ds.segment_size, df=ds.df, dt_name=ds.dt_name,
+                 ts_name=ds.ts_name, exogen_list=[ds.dt_name,ds.ts_name], list_block=ds.lstBlocks, repository_path=None)
+   for i in range(ds.num_classes):
+       shrtTerm.createDS(i)
 
    logger.info('\n\n==============================================================================================')
    logger.info('\n==============================================================================================')
