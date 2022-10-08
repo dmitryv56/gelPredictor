@@ -85,12 +85,28 @@ DATA_NORMALIZATION = 'norm'    # 'norm' -normalazation 0.0-1.0; 'stat'-statistic
 CONTINUOUS_WAVELET = 'mexh'    # see in imported 'pywt'-package
 
 
+# Short-Term forecasting ANN
+SHRT_ANN_MODEL_TYPES = ['MLP', 'CNN', 'LSTM']
+SHRT_ANN_MODEL_DICT =  {'MLP': [(0,'mlp_1'), (1, 'mlp_2')], \
+                        'CNN': [(2, 'cnn')], \
+                        'LSTM':[(3, 'vanilla_LSTM'), (4, 'stacked_LSTM'), (5, 'bdir_LSTM')]}
+SHRT_EPOCHS = 10
+SHRT_HIDDEN_LAYERS = 128
+SHRT_DROPOUT = 0.25
+SHRT_FEATURES = 1
+SHRT_UNITS = 64
+SHRT_MIN_TRAIN_DATA_SIZE = 2 * N_STEPS
+SHRT_TRAIN_PART = 0.7
+SHRT_VAL_PART = 1.0 - SHRT_TRAIN_PART
+
 
 
 def printInfo()->str:
     msg = f"""
     
-         COMMON SET    
+         COMMON SET 
+         
+    MEDIUM TERM FORECASTING GORIZONT   
 Log Folder Name            : {LOG_FOLDER_NAME}
 Main System Log            : {MAIN_SYSTEM_LOG}
 Server Log                 : {SERVER_LOG}
@@ -126,6 +142,10 @@ Alfa Relu                  : {ALFA_RELU}
 Dropout                    : {DROPOUT}
 Output (Dense) Layer Size  : {DENSE_INPUT}
 Number Kernels             : {NUM_KERNELS}
+
+     SHORT TERM FORECASTING GORIZONT
+
+   
 
           Other
 

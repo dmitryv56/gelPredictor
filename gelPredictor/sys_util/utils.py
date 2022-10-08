@@ -215,6 +215,54 @@ def getEvalSequenceStartIndex(n_train:int=64, n_eval:int=36, n_test:int=0)->int:
     return rn
 
 
+def ts2supervisedLearningData(x:np.array = None, n_steps:int = 32 )->(np.array, np.array):
+    """ from vector (TS) of size 'n' to supervised Learning Data matrix X of size 'n-n_steps * n_steps' and desired
+    vector y of size 'n-n_steps'
+    y[i] = x[i+n_steps] i =0,1,...n-n_steps-1
+    X[i,j] = x[i + j,], i=0,1,...n_n_steps-1, j=0,1,...,n_steps-1.
+
+    """
+
+    (n,)=x.shape
+    X=np.zeros(shape =(n-n_steps,n_steps), dtype = float)
+    y=np.zeros(shape=(n-n_steps), dtype=float)
+
+    for i in range(n-n_steps):
+        y[i]=x[i + n_steps]
+        for j in range(n_steps):
+            X[i][j]=x[i+j]
+
+    return X, y
+
+"""
+Decorator exec_time
+"""
+
+
+def exec_time(function):
+    def timed(*args, **kw):
+        time_start = perf_counter()
+        ret_value = function(*args, **kw)
+        time_end = perf_counter()
+
+        execution_time = time_end - time_start
+
+        arguments = ", ".join([str(arg) for arg in args] + ["{}={}".format(k, kw[k]) for k in kw])
+
+        smsg = "  {:.2f} sec  for {}({})\n".format(execution_time, function.__name__, arguments)
+        print(smsg)
+
+        with open("execution_time.log", 'a') as fel:
+            fel.write(smsg)
+
+        return ret_value
+
+    return timed
+
+
 if __name__ == "__main__":
 
+    pass
+    x=np.arange(16, dtype=float)
+    X,y = ts2supervisedLearningData(x=x, n_steps=4 )
     pass

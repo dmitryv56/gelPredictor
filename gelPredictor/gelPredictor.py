@@ -16,6 +16,7 @@ PATH_REPOSITORY , PATH_DATASET_REPOSITORY, PATH_DESCRIPTOR_REPOSITORY, \
 MAX_LOG_SIZE_BYTES, BACKUP_COUNT, PATH_TO_DATASET, DATA_NORMALIZATION, OVERLAP, N_STEPS, CONTINUOUS_WAVELET, \
 NUM_CLASSES, NUM_SCALES, SAMPLING, TS_NAME, TS_TIMESTAMP_LABEL, SEGMENT_SIZE, printInfo
 from sys_util.utils import setOutput
+from src.drive import drive_all_classes
 # ------------------------------------------------------------------------------------------------------------------
 
 size_handler = RotatingFileHandler(PATH_MAIN_LOG, mode='a', maxBytes=int(MAX_LOG_SIZE_BYTES),
@@ -73,6 +74,9 @@ if __name__ == '__main__':
                  ts_name=ds.ts_name, exogen_list=[ds.dt_name,ds.ts_name], list_block=ds.lstBlocks, repository_path=None)
    for i in range(ds.num_classes):
        shrtTerm.createDS(i)
+
+
+   drive_all_classes(shrt_data = shrtTerm)
 
    logger.info('\n\n==============================================================================================')
    logger.info('\n==============================================================================================')
