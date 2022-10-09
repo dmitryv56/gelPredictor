@@ -16,7 +16,7 @@ from keras.layers import Dense
 from keras.layers import MaxPooling1D
 from keras.models import Sequential
 
-from predictor.predictor import Predictor
+
 from sys_util.utils import exec_time
 
 logger=logging.getLogger(__name__)
