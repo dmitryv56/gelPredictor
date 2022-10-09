@@ -70,11 +70,11 @@ if __name__ == '__main__':
 
    Cnn.AccuracyChart()
 
-   shrtTerm=ShortTerm(num_classes=ds.num_classes, segment_size=ds.segment_size, df=ds.df, dt_name=ds.dt_name,
-                 ts_name=ds.ts_name, exogen_list=[ds.dt_name,ds.ts_name], list_block=ds.lstBlocks, repository_path=None)
+   shrtTerm=ShortTerm(num_classes = ds.num_classes, segment_size = ds.segment_size, n_steps = N_STEPS, df = ds.df,
+                      dt_name = ds.dt_name, ts_name = ds.ts_name, exogen_list = [ds.dt_name, ds.ts_name],
+                      list_block = ds.lstBlocks, repository_path = None)
    for i in range(ds.num_classes):
        shrtTerm.createDS(i)
-
 
    drive_all_classes(shrt_data = shrtTerm)
 

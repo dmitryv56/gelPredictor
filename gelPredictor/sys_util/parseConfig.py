@@ -88,8 +88,8 @@ CONTINUOUS_WAVELET = 'mexh'    # see in imported 'pywt'-package
 # Short-Term forecasting ANN
 SHRT_ANN_MODEL_TYPES = ['MLP', 'CNN', 'LSTM']
 SHRT_ANN_MODEL_DICT =  {'MLP': [(0,'mlp_1'), (1, 'mlp_2')], \
-                        'CNN': [(2, 'cnn')], \
-                        'LSTM':[(3, 'vanilla_LSTM'), (4, 'stacked_LSTM'), (5, 'bdir_LSTM')]}
+                        'CNN': [(2, 'univar_cnn')], \
+                        'LSTM':[(3, 'vanilla_lstm'), (4, 'stacked_lstm'), (5, 'bidir_lstm')]}
 SHRT_EPOCHS = 10
 SHRT_HIDDEN_LAYERS = 128
 SHRT_DROPOUT = 0.25
@@ -144,15 +144,25 @@ Output (Dense) Layer Size  : {DENSE_INPUT}
 Number Kernels             : {NUM_KERNELS}
 
      SHORT TERM FORECASTING GORIZONT
+Artifical Neural Net Types : {SHRT_ANN_MODEL_TYPES}
+Used ANN models dict       : {SHRT_ANN_MODEL_DICT}
 
+    Short Term prediction Hyperparameters
+Epochs                     : {SHRT_EPOCHS}
+Hidden Layers              : {SHRT_HIDDEN_LAYERS}
+Dropout                    : {SHRT_DROPOUT}
+Features                   : {SHRT_FEATURES}
+Units                      : {SHRT_UNITS}
+
+     Others
+Min Train data size        : {SHRT_MIN_TRAIN_DATA_SIZE}
+Train part                 : {SHRT_TRAIN_PART}
+Validation part            : {SHRT_VAL_PART}
    
-
-          Other
-
+                
 {funny_header()}
      
     """
-
     return msg
 
 def funny_header():

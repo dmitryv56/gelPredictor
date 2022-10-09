@@ -27,12 +27,12 @@ def drive_all_classes(shrt_data:ShortTerm = None):
         df=pd.read_csv(class_df)
         x=df[TS_NAME].values
         dt =df[TS_TIMESTAMP_LABEL].values
-        logger.info("Train ANN for {} class (state)".format(class_label))
+        logger.info("\n\n          Train ANN for {} class (state)\n\n".format(class_label))
         nret = drive_train(shrt_data=shrt_data, class_label=class_label)
         if (nret == 0):
-            logger.info("ANN models for {} class(state) trained successfully".format(class_label))
+            logger.info("\n        ANN models for {} class(state) trained successfully\n\n".format(class_label))
         else:
-            logger.error("ANN models for {} class(state) training failed".format(class_label))
+            logger.error("\n       ANN models for {} class(state) training failed\n\n".format(class_label))
 
     return
 
@@ -40,33 +40,33 @@ def drive_train(shrt_data:ShortTerm = None, class_label:int=0)->int:
     """ Train ANN models"""
 
     d_models = {}
-    for keyType in SHRT_ANN_MODEL_TYPES:
-        if gatherModels(d_models=d_models, keyType = keyType) > 0 :
-            logger.error('ANN model of {} -type: error'.format(keyType))
+
+    if gatherModels(d_models=d_models,  class_label = class_label) > 0 :
+        logger.error('ANN model gathering error')
 
     if len(d_models)==0:
         logger.error(" No created ANN models!")
         return 1
     X,y,X_val,y_val =shrt_data.createTrainData(class_label=class_label)
     trainData = (X,y,X_val,y_val)
-    histories = fit_models(d_models=d_models, trainData=trainData)
+    histories = fit_models(d_models=d_models, trainData=trainData, class_label = class_label)
+
+    history_msg = ""
+    for key, value in histories.items():
+        history_msg = history_msg + "{} : \n    {}\n".format(key,value)
 
     msg = f"""
     
 Train Histories for {class_label} class(state)
 
-{histories}
+{history_msg}
     
     """
     logger.info(msg)
     return 0
 
-def createTrainData()->tuple:
-    """ Create traindata (learning data X and desired vector y) from 'syntetical' time series"""
 
-    pass
-
-def gatherModels(d_models:dict={}, keyType:str='MLP')->int:
+def gatherModels(d_models:dict={}, keyType:str='MLP', class_label:int =0 )->int:
     """
 
     :param d_models: [in], [out] =dictionary {index:<wrapper for model>}. Through parameter
@@ -75,13 +75,23 @@ def gatherModels(d_models:dict={}, keyType:str='MLP')->int:
     :return: 0-ok, 1 -error
     """
 
-    if keyType not in SHRT_ANN_MODEL_TYPES:
-        msg  = "Undefined type of ANN Model\n It is not supported by gelPredictor!".format(keyType)
-        print(msg)
-        logger.error(msg)
-        return 1
+    # if keyType not in SHRT_ANN_MODEL_TYPES:
+    #     msg  = "Undefined type of ANN Model\n It is not supported by gelPredictor!".format(keyType)
+    #     print(msg)
+    #     logger.error(msg)
+    #     return 1
 
+    logger.info("\n          ANN models assembling from templates for {} class(state)\n".format(class_label))
     for keyType,listType in SHRT_ANN_MODEL_DICT.items():
+        msg = f"""
+        
+ANN type : {keyType}
+Models   :
+{listType}
+
+        """
+        logger.info(msg)
+
         for tuple_item in listType:
             (index_model,name_model) = tuple_item
             if keyType == "MLP":
@@ -107,16 +117,19 @@ def gatherModels(d_models:dict={}, keyType:str='MLP')->int:
 
             d_models[index_model] = curr_model
             logger.info(curr_model)
+        pass
+    pass
 
-        return 0
+    return 0
 
 @exec_time
-def fit_models(d_models:dict = {}, trainData:tuple =())->dict:
-    r""" A method fits NN models and STS models.
-    :param d_models:
-    :param cp:
-    :param ds:
-    :return:
+def fit_models(d_models:dict = {}, trainData:tuple =(), class_label:int = 0)->dict:
+    """
+    Fit Models for train data
+    :param [in] d_models
+    :param [in] trainData -the tuple contains (X,y,X_val,y_val)
+    :param [in] class_label
+    :return: keras' histories dict
     """
 
     (X,y,X_val,y_val) = trainData
@@ -134,15 +147,6 @@ def fit_models(d_models:dict = {}, trainData:tuple =())->dict:
             X, y, X_val, y_val, N_STEPS, SHRT_FEATURES, SHRT_EPOCHS, LOG_FOLDER_NAME, None)
         logger.info("\n\n {} model  fitting\n".format(curr_model.nameM))
         history = curr_model.fit_model()
-
-        # if curr_model.typeModel == "CNN" or curr_model.typeModel == "LSTM" or curr_model.typeModel == "MLP":
-        #
-        #     chart_MAE(curr_model.nameModel, cp.rcpower_dset, history, cp.n_steps, cp.folder_train_log,
-        #               cp.stop_on_chart_show)
-        #     chart_MSE(curr_model.nameModel, cp.rcpower_dset, history, cp.n_steps, cp.folder_train_log,
-        #               cp.stop_on_chart_show)
-        # elif curr_model.typeModel == "tsARIMA":
-        #     curr_model.fitted_model_logging()
 
         histories[k] = history
 

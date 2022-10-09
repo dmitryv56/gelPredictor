@@ -180,13 +180,17 @@ class NNmodel(baseNNmodel):
     def fit_model(self):
         X, y, X_val, y_val, n_steps, n_features, n_epochs, logfolder, f = self.param_fit
         history = self.model.fit(X, y, epochs=n_epochs, verbose=0, validation_data=(X_val, y_val), )
+        msg_history = "\n\nEpochs : {}\n".format(history.epoch)
+        for key,value in history.history.items():
+            msg_history = msg_history + "\n{} :\n    {}".format(key,value)
 
         msg =f"""
 
 Model {self.model.name}
 Training history 
 
-{history.history}
+{msg_history}
+
         """
         self.log.info(msg)
         return history
