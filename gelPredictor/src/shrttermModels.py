@@ -149,10 +149,10 @@ class NNmodel(baseNNmodel):
             layer_number, key, value = tuple_item
 
             if layer_number >= len(model_config['layers']):
-                msg2log(self.updConfigSavedModel.__name__, "Layer {} dont exist".format(layer_number), self.f)
+                self.log.info(self.updConfigSavedModel.__name__, "Layer {} dont exist".format(layer_number), self.f)
                 continue
             if key not in model_config['layers'][layer_number]['config']:
-                msg2log(self.updConfigSavedModel.__name__,
+                self.log.info(self.updConfigSavedModel.__name__,
                         "Key {} dont exist on {} layerr config".format(key, layer_number), self.f)
                 continue
 

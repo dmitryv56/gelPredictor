@@ -8,19 +8,15 @@ import numpy as np
 import pandas as pd
 import pywt
 from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
 import logging
 
 from src.block import Block
-from sys_util.parseConfig import PATH_LOG_FOLDER , PATH_REPOSITORY, PATH_CHART_LOG
+from sys_util.parseConfig import PATH_LOG_FOLDER , PATH_REPOSITORY, PATH_CHART_LOG, TRAIN_RATIO, VAL_RATIO
 from sys_util.utils import simpleScalingImgShow
 from src.hmm import hmm
 
 logger = logging.getLogger(__name__)
-
-TRAIN_RATIO = 0.7
-VAL_RATIO = 0.25
-
-
 
 class Dau(object):
     """Data Aquisiation Unit is responsible for communicating with the data source.
@@ -28,32 +24,33 @@ class Dau(object):
     """
 
     def __init__(self,ts: str = "",dt: str = "Date Time", sampling: int = 10*60, n_steps: int = 144,
-                 segment_size:int = 96,norm: str = "stat", overlap: int = 0, continuous_wavelet: str = 'mexh',
-                 num_classes:int = 4, num_scales:int = 16, model_repository:Path = None,  log_folder:Path = None,
-                 chart_log: Path = None):
+                 segment_size: int = 96,norm: str = "stat", overlap: int = 0, continuous_wavelet: str = 'mexh',
+                 num_classes: int = 4, num_scales: int = 16, compress: str = 'pca', n_components: int = 2,
+                 model_repository: Path = None,  log_folder: Path = None, chart_log: Path = None):
         """ Constructor """
 
-        self.log=logger
+        self.log = logger
         self.ts_name = ts
         self.dt_name = dt
         self.sampling = sampling
         self.n_steps = n_steps
         self.segment_size = segment_size
-        self.num_scales =num_scales
+        self.num_scales = num_scales
         self.scales = [i + 1 for i in range(self.num_scales)]
         self.frequencies = None
-        self.wavelet = continuous_wavelet   #   'mexh'   #'cmor1.5-1.0'
+        self.wavelet = continuous_wavelet
+        #   'mexh'   'cmor1.5-1.0'
         self.wav = pywt.ContinuousWavelet(self.wavelet)
         self.width = self.wav.upper_bound - self.wav.lower_bound
         self.max_wav_len = 0
         self.norm = norm
         self.overlap = overlap
-        self.num_classes=num_classes
+        self.num_classes = num_classes
+        self.compress = compress
+        self.n_components = n_components
         self.model_repository = model_repository
         self.log_folder = log_folder
         self.chart_log = chart_log
-
-
 
 
 class Dataset(Dau):
@@ -85,19 +82,23 @@ class Dataset(Dau):
     scalogramEstimation
     """
 
-    def __init__(self, pathTo:str = "", ts:str = "", dt:str = "Date Time", sampling:int = 10*60, n_steps:int = 144,
-                 segment_size:int = 96, norm:str = "stat", overlap:int = 0, continuous_wavelet: str = 'mexh',
-                 num_classes:int = 4, num_scales:int = 16, model_repository:Path = PATH_REPOSITORY,
-                 log_folder:Path = PATH_LOG_FOLDER, chart_log: Path = PATH_CHART_LOG):
+    def __init__(self, pathTo: str = "", ts: str = "", dt: str = "Date Time", sampling: int = 10*60, n_steps: int = 144,
+                 segment_size: int = 96, norm: str = "stat", overlap: int = 0, continuous_wavelet: str = 'mexh',
+                 num_classes: int = 4, num_scales: int = 16, compress: str = 'pca', n_components: int = 2,
+                 model_repository: Path = PATH_REPOSITORY, log_folder: Path = PATH_LOG_FOLDER,
+                 chart_log: Path = PATH_CHART_LOG):
         """ Constructor """
 
 
-        super().__init__(ts = ts, dt = dt,sampling = sampling, n_steps = n_steps, segment_size = segment_size,
+        super().__init__(ts=ts, dt =dt, sampling = sampling, n_steps = n_steps, segment_size = segment_size,
                          norm = norm, overlap = overlap, continuous_wavelet = continuous_wavelet,
-                         num_classes =num_classes, num_scales = num_scales, model_repository = model_repository,
-                         log_folder = log_folder, chart_log = chart_log)
+                         num_classes = num_classes, num_scales = num_scales, compress = compress,
+                         n_components = n_components, model_repository = model_repository, log_folder = log_folder,
+                         chart_log = chart_log)
+        """ Constructor"""
+
         self.pathToCsv = pathTo
-        self.df:pd.DataFrame = None
+        self.df: pd.DataFrame = None
         self.y       = None
         self.dt      = None
         self.n       = 0
@@ -119,20 +120,24 @@ class Dataset(Dau):
         msg=f"""
         
         
-Dataset          : {self.pathToCsv}
-TS name          : {self.ts_name}  Timestamp labels : {self.dt_name} Data Normalization : {self.norm}
-TS mean          : {self.mean}     TS std : {self.std} TS length : {self.n} Sampling : {self.sampling} sec 
-Segment Size     : {self.segment_size}  Train blocks : {self.n_train_blocks} Validation blocks : {self.n_val_blocks}
-Train Size       : {self.n_train}  Validation Size : {self.n_val}  Test Size: {self.n_test} 
+Dataset              : {self.pathToCsv}
+TS name              : {self.ts_name}  Timestamp labels : {self.dt_name} Data Normalization : {self.norm}
+TS mean              : {self.mean}     TS std : {self.std} TS length : {self.n} Sampling : {self.sampling} sec 
+Segment Size         : {self.segment_size}  Train blocks : {self.n_train_blocks} Validation blocks : {self.n_val_blocks}
+Train Size           : {self.n_train}  Validation Size : {self.n_val}  Test Size: {self.n_test} 
 
-Wavelet          : {self.wav}
-Scales           : {self.scales}
-Frequencies,Hz   : {self.frequencies}
-Wavelet wigth    : {self.width} Max len :{self.max_wav_len }
+Wavelet              : {self.wav}
+Scales               : {self.scales}
+Frequencies,Hz       : {self.frequencies}
+Wavelet wigth        : {self.width} Max len :{self.max_wav_len }
 
-Model Repository : {self.model_repository}
-Aux Log Folder   : {self.log_folder}
-Charts           : {self.chart_log}
+Classification
+Data Compress Method : {self.compress}
+Number components    : {self.n_components}
+
+Model Repository     : {self.model_repository}
+Aux Log Folder       : {self.log_folder}
+Charts               : {self.chart_log}
 
 """
         self.log.info(msg)
@@ -268,10 +273,25 @@ The overlap                                  : {self.overlap}
             for j in range(m):
                 X[i,j] =self.y[self.lstOffsetSegment[i]+j]
 
-        kmeans = KMeans(n_clusters=self.num_classes, random_state=0).fit(X)
+        # transformation by PCA to compress data
+        if self.compress == "pca":
+            self.log.info(
+            "P(rincipial) C(omponent) A(nalysis) method is used for compress to data till {} components\n".\
+                format(self.n_components))
 
-        file_png = str(Path(Path(self.chart_log) / Path("KMeans clasterization")).with_suffix(".png"))
-        plotClusters(kmeans, X, file_png)
+            pca = PCA(n_components=self.n_components)
+            obj = pca.fit(X)
+            self.log.info("PCA object for transformation\n{}\n".format(obj))
+
+            Xpca=pca.fit_transform(X)
+            self.log.info("compressed Data\n{}".format(Xpca))
+            file_png = str(Path(Path(self.chart_log) / Path("KMeans_clasterization_PCA")).with_suffix(".png"))
+            kmeans = KMeans(n_clusters=self.num_classes, random_state=0).fit(Xpca)
+            plotClusters(kmeans, Xpca, file_png)
+        else:
+            kmeans = KMeans(n_clusters=self.num_classes, random_state=0).fit(X)
+            file_png = str(Path(Path(self.chart_log) / Path("KMeans clasterization")).with_suffix(".png"))
+            plotClusters(kmeans, X, file_png)
 
         for i in range(n):
             self.lstBlocks[i].desire = kmeans.labels_[i]
@@ -308,6 +328,9 @@ The overlap                                  : {self.overlap}
         return X,Y
 
     def initHMM_logClasses(self):
+        """ Prepare segment-class and class-segment logs. Init HMM parameters (initial , transition matrix, emission).
+        """
+
         self.log.info("segment - class log printing...")
         print("segment - class log printing...")
         outFile = Path(self.log_folder /"segment_class").with_suffix(".txt")
@@ -352,6 +375,19 @@ The overlap                                  : {self.overlap}
         for item in self.lstBlocks:
             item.scalogramEstimation()
 
+    def createExtendedDataset(self):
+        """ Create """
+        df1 = pd.read_csv(self.pathToCsv)
+        state_seq = []
+        for item in self.hmm.state_sequence:
+            state_seq.extend([item for k in range(self.segment_size)])
+        n_tail=len(df1)- len(state_seq)
+        if n_tail >0:
+            state_seq.extend([-1 for k in range(n_tail)])
+        df1["{}".format(self.num_classes)]=state_seq
+        ext_DS=self.pathToCsv.stem
+        path_ext_DS= Path( PATH_LOG_FOLDER / Path("{}_{}_states".format(ext_DS, self.num_classes))).with_suffix(".csv")
+        df1.to_csv(path_ext_DS, index=False)
 
 def plotClusters(kmeans: KMeans, X: np.array, file_png:Path):
     """

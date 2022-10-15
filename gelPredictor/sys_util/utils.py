@@ -9,6 +9,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import logging
 
+import tensorflow as tf
+import tensorflow_probability as tpb
+
 from sys_util.parseConfig import PATH_LOG_FOLDER , PATH_REPOSITORY, PATH_CHART_LOG
 
 MEAN_COL = 0
@@ -259,6 +262,191 @@ def exec_time(function):
 
     return timed
 
+
+def drive_HMM(folder_predict_log:Path = None, ts_name: str = "TS", pai: np.array=None, transitDist: np.array = None,
+              emisDist: np.array =None,  observations: np.array = None, observation_labels: np.array = None,
+              states_set: np.array = None) -> (np.array, str, object):
+    """
+
+
+    :param pai:
+    :param transitDist:
+    :param emisDist:
+    :param observations:
+    :param observation_labels:
+    :param states_set:
+    :return:
+    """
+
+    tfd = tpb.distributions
+
+    imprLogDist(arDist=pai,         title = "Initial Distribution")
+    imprLogDist(arDist=transitDist, title = "Transition Distribution")
+    imprLogDist(arDist=emisDist,    title = "Emission Distribution")
+
+    pai = tf.convert_to_tensor(pai, dtype=tf.float64)
+    transitDist = tf.convert_to_tensor(transitDist, dtype=tf.float64)
+
+    initial_distribution = tfd.Categorical(probs=pai)
+    transition_distribution = tfd.Categorical(probs=transitDist)
+    mean_list = emisDist[:, 0].tolist()
+    std_list = emisDist[:, 1].tolist()
+
+    for i in range(len(std_list)):
+        if std_list[i] < 1e-06:
+            std_list[i] = 1e-06
+
+    mean_list = tf.convert_to_tensor(mean_list, dtype=tf.float64)
+    std_list = tf.convert_to_tensor(std_list, dtype=tf.float64)
+
+    observation_distribution = tfd.Normal(loc=mean_list, scale=std_list)
+
+    model = tfd.HiddenMarkovModel(
+        initial_distribution=initial_distribution,
+        transition_distribution=transition_distribution,
+        observation_distribution=observation_distribution,
+        num_steps=len(observations))
+
+    observations_tenzor = tf.convert_to_tensor(observations.tolist(), dtype=tf.float64)
+
+    post_mode = model.posterior_mode(observations_tenzor)
+    msg = "Posterior mode\n\n{}\n".format(post_mode)
+    logger.info(msg)
+
+    post_marg = model.posterior_marginals(observations_tenzor)
+    msg = "{}\n\n{}\n".format(post_marg.name, post_marg.logits)
+
+    logger.info(msg)
+    mean_value = model.mean()
+    msg = "mean \n\n{}\n".format(mean_value)
+    logger.info(msg)
+    log_probability = model.log_prob(observations_tenzor)
+    msg = "Log probability \n\n{}\n".format(log_probability)
+    logger.info(msg)
+
+    plotViterbiPath(str(len(observations)), observation_labels, post_mode.numpy(), states_set, folder_predict_log, ts_name)
+
+    return post_mode.numpy(), post_marg.name, post_marg.logits
+
+def plotViterbiPath(pref, observations, viterbi_path, hidden_sequence, folder_predict_log, ts_name):
+    """
+
+    :param df:
+    :param cp:
+    :return:
+    """
+
+    suffics = ".png"
+    if hidden_sequence is not None:
+        file_name = "{}_viterbi_sequence_vs_hidden_sequence".format(pref)
+    else:
+        file_name = "{}_viterbi_sequence".format(pref)
+    file_png = file_name + ".png"
+    vit_png = Path(folder_predict_log / file_png)
+
+    try:
+        # plt.plot(observations, viterbi_path, label="Viterbi path")
+        # plt.plot(observations, hidden_sequence, label="Hidden path")
+        plt.plot(viterbi_path, label="Viterbi path")
+
+        if hidden_sequence is not None:
+            plt.plot(hidden_sequence, label="Hidden path")
+
+        else:
+            pass
+        numfig = plt.gcf().number
+        fig = plt.figure(num=numfig)
+        fig.set_size_inches(18.5, 10.5)
+        if hidden_sequence is not None:
+            fig.suptitle("Viterby optimal path vs hidden path for dataset\n{}".format(ts_name), fontsize=24)
+        else:
+            fig.suptitle("Viterby optimal path for dataset\n{}".format(ts_name), fontsize=24)
+        plt.ylabel("States", fontsize=18)
+        plt.xlabel("Observation timestamps", fontsize=18)
+        plt.legend()
+        plt.savefig(vit_png)
+
+    except:
+        pass
+    finally:
+        plt.close("all")
+    return
+
+
+def plotArray(arr: np.array = None, title: str = "TS", folder_control_log: Path = None, file_name: str = "TS"):
+
+
+    file_png = file_name + ".png"
+    fl_png = Path(folder_control_log / file_png)
+
+    try:
+        plt.plot(arr)
+        numfig = plt.gcf().number
+        fig = plt.figure(num=numfig)
+        fig.set_size_inches(18.5, 10.5)
+        fig.suptitle("{}".format(title), fontsize=24)
+
+        plt.savefig(fl_png)
+        message = f"""
+
+           Plot file                : {fl_png}
+           Time series              : {title}
+
+           """
+        logger.info( message)
+    except:
+        pass
+    finally:
+        plt.close("all")
+    return
+
+def imprLogDist(arDist: np.array = None, row_header: list = None, col_header: list = None, title: str= ""):
+
+
+    logger.info(title)
+    shp = arDist.shape
+    if len(shp) == 1:
+
+        b = arDist.reshape((-1, 1))
+        (n_row, n_col) = b.shape
+        auxLogDist(b, n_row, n_col, row_header, col_header, title)
+
+    elif len(shp) == 2:
+        (n_row, n_col) = shp
+        auxLogDist(arDist, n_row, n_col, row_header, col_header, title)
+    else:
+        msg = "Incorrect array shape {}".format(shp)
+        logger.error(msg)
+
+    return
+
+def auxLogDist(arDist: np.array, n_row:int, n_col:int,  row_header:list, col_header:list, title: str):
+    if row_header is None or not row_header:
+        row_header = [str(i) for i in range(n_row)]
+    if col_header is None or not col_header:
+        col_header = [str(i) for i in range(n_col)]
+    row_header = [str(i) for i in row_header]
+    col_header = [str(i) for i in col_header]
+    wspace = ' '
+    s = "{:<10s}".format(wspace)
+
+    for i in col_header:
+        s = s + "{:^11s}".format(i)
+
+    logger.info(s)
+    for i in range(n_row):
+        s = "{:<10s}".format(row_header[i])
+        for j in range(n_col):
+            if isinstance(arDist[i][j], int):
+                s1 = "{:>10d}".format(arDist[i][j])
+            elif isinstance(arDist[i][j], float):
+                s1 = "{:>10.4f}".format(arDist[i][j])
+            else:
+                s1 = "{:^10s}".format(arDist[i][j])
+            s = s + "  " + s1
+
+        logger.info(s)
+    return
 
 if __name__ == "__main__":
 

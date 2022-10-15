@@ -15,6 +15,8 @@ DSsolar2021_5_20 ="~/LaLaguna/gelPredictor/dataset_Repository/PowerSolar_2021_5_
 dt_name = "Date Time"
 ts_name = "Wind_offshore_50Hertz"
 ts_solar_name ="Power_Solar"
+ts_solar_name_per_day ="Average_Power_Solar_per_day"
+DSsolar2021_per_day ="~/LaLaguna/gelPredictor/dataset_Repository/PowerSolar_2021_per_day.csv"
 
 def crtDS():
     df = pd.read_csv(DS2020)
@@ -87,11 +89,64 @@ def crtSolarDSreduce():
     df.to_csv(DSsolar2021_5_20)
     pass
 
+def spectrAgrSolar(x, fs):
+    f, Pxx_den = signal.periodogram(x, fs)
+    plt.semilogy(f, Pxx_den)
+    plt.ylim([1e-4, 1e6])
+    plt.xlabel('frequency [Hz]')
+    plt.ylabel('PSD Agr. Solar Power')
+
+    plt.savefig("spectrSolar.png")
+    plt.close("all")
+
+
+def autocorr2(x,lags):
+    '''manualy compute, non partial'''
+
+    mean=np.mean(x)
+    var=np.var(x)
+    xp=x-mean
+    corr=[1. if l==0 else np.sum(xp[l:]*xp[:-l])/len(x)/var for l in range(lags)]
+
+    return np.array(corr)
+
+def SolarAggrSpect():
+    df=pd.read_csv(DSsolar2021)
+    dt0 = df[dt_name].values
+    dv0 = df[ts_solar_name].values
+    dt1 = []
+    dv1 = []
+    ndays = int(len(dv0)/24)
+    n=ndays *24
+    if n<len(dv0):
+        print("Last {} reduced".format(len(dv0)-n))
+    sum_day =0.0
+    for i in range(n):
+        sum_day=sum_day + dv0[i]
+
+        if i%24 == 0 and i>=24:
+            dt1.append(dt0[i-24])
+            sum_day=round(sum_day/24,4)
+            dv1.append(sum_day)
+            sum_day = 0.0
+        pass
+    pass
+    df = pd.DataFrame({dt_name: dt1[:], ts_solar_name: dv1[:]})
+    df.to_csv(DSsolar2021_per_day)
+
+    corr = autocorr2(dv1,int(len(dv1)/4))
+
+    print("\n   Autocorelation {}\n".format(ts_solar_name_per_day))
+    for i in range(len(corr)):
+        print("{:<3d} {:<10.4f}".format(i, corr[i]))
+
+    spectrAgrSolar(dv1, 1.0/(1440*60))
+    return
 
 if __name__ == "__main__":
     # crtDS()
     # readData()
-    crtSolarDSreduce()
-
+    # crtSolarDSreduce()
+    SolarAggrSpect()
 
     pass

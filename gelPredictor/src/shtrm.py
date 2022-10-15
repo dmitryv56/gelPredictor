@@ -16,8 +16,9 @@ class ShortTerm(object):
 
     def __init__(self, num_classes:int=5, segment_size:int=96, n_steps: int = 32, df:pd.DataFrame = None,
                  dt_name:str="Date Time", ts_name:str="Power", exogen_list:list=[],  list_block:list=[],
-                 repository_path:Path=None):
+                 repository_path:Path=None, model_repository_path: Path = None, chart_repository_path:Path = None):
         """ Constructor """
+
         self.log = logger
         self.num_classes = num_classes
         self.segment_size = segment_size
@@ -28,9 +29,38 @@ class ShortTerm(object):
         self.ts_name = ts_name
         self.exogen_list = exogen_list
         self.repository_path = repository_path
+        self.model_repository_path = model_repository_path
+        self.chart_repository_path = chart_repository_path
         self.d_df={}
         self.d_size ={}
         self.d_data_df = {}     # not be used
+
+    def __str__(self):
+        """ log class implementation"""
+
+        msg = f"""
+        
+Class : {self.__class__.__name__}
+Logger : {self.log.__str__()}
+Number of states(classes): {self.num_classes}
+Segment (block) size     : {self.segment_size}
+N_steps for Supervised Learning Data: {self.n_steps}
+Data Frame object                   : {self.df.__str__()}
+List Blocks (each block is object)  : {self.list_block}
+Time Series name                    : {self.ts_name}
+Shapshots label name                : {self.dt_name}
+Exogenius Factor List               : {self.exogen_list}
+Repository (syntetic TS) path       : {self.repository_path}  
+Repository ANN Models Path          : {self.model_repository_path}
+Repository Chart Path               : {self.chart_repository_path}
+Class:Path to csv (dict)            : {self.d_df}
+Class:Size of dataset (dict)        : {self.d_size}
+Class:Data Frame (dict)             : {self.d_data_df}
+
+"""
+        print(msg)
+        self.log.info(msg)
+        return
 
     def createDS(self, class_label:int=0):
         """ create dataset for class from source DataFrame.
