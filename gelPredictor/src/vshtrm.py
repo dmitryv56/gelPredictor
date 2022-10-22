@@ -11,8 +11,8 @@ from sys_util.utils import ts2supervisedLearningData
 
 logger = logging.getLogger(__name__)
 
-class ShortTerm(object):
-    """ Prepare data sets per cluster (state) for short term forecasting  """
+class VeryShortTerm(object):
+    """ Prepare data sets per cluster (state) for very short-term forecasting  """
 
     def __init__(self, num_classes:int=5, segment_size:int=96, n_steps: int = 32, df:pd.DataFrame = None,
                  dt_name:str="Date Time", ts_name:str="Power", exogen_list:list=[],  list_block:list=[],

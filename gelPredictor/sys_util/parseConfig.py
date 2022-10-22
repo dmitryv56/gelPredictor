@@ -122,7 +122,7 @@ SHRT_VAL_PART            = 1.0 - SHRT_TRAIN_PART
 def printInfo()->str:
     msg = f"""
     
-         Artifical Neural Net (ANN) Medium Term And Short Term Forescting
+         Artifical Neural Net (ANN) Medium Term And Very Short-Term Forescting
                   {FORECASTING_OBJECT_TITLE }
                   
     MEDIUM TERM FORECASTING GORIZONT   
@@ -171,15 +171,15 @@ Number Kernels             : {NUM_KERNELS}
 Ratio (Tran:Valid:Test)    : {TRAIN_RATIO} : {VAL_RATIO} : {round(1.- TRAIN_RATIO - VAL_RATIO, 3)}
 
 
-     Short Term Forecasting Gorizont
-Path Short Term Datasets   : {PATH_SHRT_DATASETS}
-Path Short Term ANN Models
+     Very Short-Term Forecasting Gorizont
+Path Very Short-Term Datasets   : {PATH_SHRT_DATASETS}
+Path Very Short-Term ANN Models
 Repository                 : {PATH_SHRT_MODELS}
-Path Short Term Charts     : {PATH_SHRT_CHARTS}
+Path Very Short-Term Charts     : {PATH_SHRT_CHARTS}
 Artifical Neural Net Types : {SHRT_ANN_MODEL_TYPES}
 Used ANN models dict       : {SHRT_ANN_MODEL_DICT}
 
-    Short Term Prediction ANN Hyper-parameters Set
+    Very Short-Term Prediction ANN Hyper-parameters Set
 Epochs                     : {SHRT_EPOCHS}
 Hidden Layers              : {SHRT_HIDDEN_LAYERS}
 Dropout                    : {SHRT_DROPOUT}

@@ -8,19 +8,19 @@ import pandas as pd
 from sys_util.parseConfig import SHRT_ANN_MODEL_TYPES, SHRT_ANN_MODEL_DICT, N_STEPS, SHRT_EPOCHS, SHRT_HIDDEN_LAYERS, \
     SHRT_DROPOUT, SHRT_FEATURES, SHRT_UNITS, TS_NAME, TS_TIMESTAMP_LABEL, PATH_REPOSITORY, LOG_FOLDER_NAME
 from sys_util.utils import  exec_time
-from src.shrttermModels import MLP, CNN, LSTM
-from src.shtrm import ShortTerm
+from src.vshrtrmModels import MLP, CNN, LSTM
+from src.vshtrm import VeryShortTerm
 
 logger=logging.getLogger(__name__)
 
-def drive_all_classes(shrt_data:ShortTerm = None):
+def drive_all_classes(shrt_data:VeryShortTerm = None):
     """ Train ANN models for all classes"""
 
     if shrt_data is None:
-        logger.log.error("No object for short term data . Exit!")
+        logger.log.error("No object for Very Short-Term data . Exit!")
         return
     if shrt_data.d_df is None or shrt_data.d_size is None:
-        logger.log.error("Incorrect short term data. Exit!")
+        logger.log.error("Incorrect Very Short-Term data. Exit!")
         return
 
     for class_label,class_df in shrt_data.d_df.items():
@@ -36,7 +36,7 @@ def drive_all_classes(shrt_data:ShortTerm = None):
 
     return
 
-def drive_train(shrt_data:ShortTerm = None, class_label:int=0)->int:
+def drive_train(shrt_data:VeryShortTerm = None, class_label:int=0)->int:
     """ Train ANN models"""
 
     d_models = {}

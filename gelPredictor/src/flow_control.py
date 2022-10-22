@@ -18,7 +18,7 @@ import numpy as np
 
 from src.dau import Dataset
 from src.cnn import  CNN
-from src.shtrm import ShortTerm
+from src.vshtrm import VeryShortTerm
 from sys_util.parseConfig import LOG_FOLDER_NAME, MAIN_SYSTEM_LOG, SERVER_LOG, CHART_LOG, \
 PATH_ROOT_FOLDER, PATH_LOG_FOLDER , PATH_MAIN_LOG , PATH_SERVER_LOG, PATH_CHART_LOG , \
 PATH_REPOSITORY , PATH_DATASET_REPOSITORY, PATH_DESCRIPTOR_REPOSITORY, \
@@ -75,10 +75,10 @@ def medTrainPath(ds: Dataset = None, X: np.array = None, Y: np.array = None)->CN
     return Cnn
 
 @exec_time
-def shrtTrainPath(ds: Dataset = None)->ShortTerm:
+def shrtTrainPath(ds: Dataset = None)->VeryShortTerm:
     pass
 
-    shrtTerm = ShortTerm(num_classes=ds.num_classes, segment_size=ds.segment_size, n_steps=N_STEPS, df=ds.df,
+    shrtTerm = VeryShortTerm(num_classes=ds.num_classes, segment_size=ds.segment_size, n_steps=N_STEPS, df=ds.df,
                          dt_name=ds.dt_name, ts_name=ds.ts_name, exogen_list=[ds.dt_name, ds.ts_name],
                          list_block=ds.lstBlocks, repository_path=PATH_SHRT_DATASETS)
     for i in range(ds.num_classes):
@@ -101,15 +101,29 @@ def hmmTrainPath(ds: Dataset = None):
             val = val + ds.df[ds.ts_name].values[i]
         observations.append(val/ds.segment_size)
 
-    post_mode_, post_marg_name_, post_marg_logits_ = drive_HMM(folder_predict_log = ds.chart_log, ts_name = ds.ts_name,
+    viterbi_path, post_marg_name_, post_marg_logits_ = drive_HMM(folder_predict_log = ds.chart_log, ts_name = ds.ts_name,
                                                                pai = ds.hmm.pi, transitDist = ds.hmm.A,
                                                                emisDist=ds.hmm.B, observations=np.array(observations),
                                                                observation_labels=np.array(observation_labels),
                                                                states_set = ds.hmm.state_sequence)
 
+    pred_states, pred_states_probability = hmmPredpath(ds = ds, viterbi_path = viterbi_path, num_predictions = 4 )
+
     return
-def hmmPredpath(ds: Dataset = None):
+
+def hmmPredpath(ds: Dataset = None, viterbi_path:np.array = None, num_predictions:int =2)->(list, list):
     """ H(idden) M(arkov) M(odel) """
+
+    pred_states = []
+    pred_states_probability = []
+    new_pred_step = viterbi_path[-1]
+    prob_pred_state = 1.0
+    for i in range(num_predictions):
+        new_pred_step, prob_new_pred_state = ds.hmm.one_step_predict(new_pred_step)
+        pred_states.append(new_pred_step)
+        prob_pred_state = prob_pred_state * prob_new_pred_state
+        pred_states_probability.append(prob_pred_state)
+    return pred_states, pred_states_probability
 
 if __name__ == "__main__":
     pass

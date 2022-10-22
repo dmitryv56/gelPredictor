@@ -43,6 +43,18 @@ class hmm(object):
 
         self.B = emisMLE(yy=yy[:train_sequence_size * n_block], n_block=n_block, state_sequence=self.state_sequence.tolist(), states=self.states)
 
+    def one_step_predict(self, last_state:int=0)->(int, float):
+        """ new_state =argmax(A(i, last_state)"""
 
+        arg_max =0
+        (m,n)=self.A.shape
+        curr_max = self.A(0,last_state)
+        for i in range(n):
+            if curr_max<self.A(i, last_state):
+                arg_max = i
+                curr_max = self.A(i, last_state)
+        return arg_max, self.A(arg_max,last_state)
+
+        """ Predict next state """
 if __name__ == "__main__":
     pass
