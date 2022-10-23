@@ -4,6 +4,7 @@
 
 import logging
 import pandas as pd
+from pathlib import Path
 
 from sys_util.parseConfig import SHRT_ANN_MODEL_TYPES, SHRT_ANN_MODEL_DICT, N_STEPS, SHRT_EPOCHS, SHRT_HIDDEN_LAYERS, \
     SHRT_DROPOUT, SHRT_FEATURES, SHRT_UNITS, TS_NAME, TS_TIMESTAMP_LABEL, PATH_REPOSITORY, LOG_FOLDER_NAME
@@ -12,6 +13,9 @@ from src.vshrtrmModels import MLP, CNN, LSTM
 from src.vshtrm import VeryShortTerm
 
 logger=logging.getLogger(__name__)
+
+TRAIN_FOLDER = Path(LOG_FOLDER_NAME / Path("TrainPath"))
+TRAIN_FOLDER.mkdir(parents=True, exist_ok=True)
 
 def drive_all_classes(shrt_data:VeryShortTerm = None):
     """ Train ANN models for all classes"""
@@ -112,8 +116,12 @@ Models   :
             curr_model.timeseries_name = TS_NAME
             curr_model.path2modelrepository = PATH_REPOSITORY
 
+            file_name = "TS_{}_{}_{}".format(curr_model.timeseries_name, curr_model.typeM, curr_model.nameM)
+            model_log = Path(TRAIN_FOLDER / Path(file_name)).with_suffix(".log")
+            logger.info("\n\n {} model  is logging in {}\n".format(curr_model.nameM, str(model_log)))
+
             funcname = getattr(curr_model, name_model)
-            curr_model.set_model_from_template(funcname)
+            curr_model.set_model_from_template(funcname, model_log = model_log)
 
             d_models[index_model] = curr_model
             logger.info(curr_model)
@@ -145,8 +153,12 @@ def fit_models(d_models:dict = {}, trainData:tuple =(), class_label:int = 0)->di
 
         curr_model.param_fit = (
             X, y, X_val, y_val, N_STEPS, SHRT_FEATURES, SHRT_EPOCHS, LOG_FOLDER_NAME, None)
-        logger.info("\n\n {} model  fitting\n".format(curr_model.nameM))
-        history = curr_model.fit_model()
+        file_name = "ANN_{}_{}".format( curr_model.typeM, curr_model.nameM)
+        train_class_folder = Path(TRAIN_FOLDER /Path("state_{}".format(class_label)))
+        train_class_folder.mkdir( parents = True, exist_ok = True)
+        fit_log = Path(train_class_folder /Path(file_name) ).with_suffix(".log")
+        logger.info("\n\n {} model  fitting is logging in {}\n".format(curr_model.nameM, str(fit_log)))
+        history = curr_model.fit_model(fit_log = fit_log)
 
         histories[k] = history
 

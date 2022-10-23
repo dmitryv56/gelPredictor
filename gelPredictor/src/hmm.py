@@ -48,12 +48,12 @@ class hmm(object):
 
         arg_max =0
         (m,n)=self.A.shape
-        curr_max = self.A(0,last_state)
+        curr_max = self.A[0,last_state]
         for i in range(n):
-            if curr_max<self.A(i, last_state):
+            if curr_max<self.A[i, last_state]:
                 arg_max = i
-                curr_max = self.A(i, last_state)
-        return arg_max, self.A(arg_max,last_state)
+                curr_max = self.A[i, last_state]
+        return arg_max, self.A[arg_max,last_state]
 
         """ Predict next state """
 if __name__ == "__main__":
