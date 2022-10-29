@@ -448,6 +448,20 @@ def auxLogDist(arDist: np.array, n_row:int, n_col:int,  row_header:list, col_hea
         logger.info(s)
     return
 
+
+def matrix2string(X:np.array=None)->str:
+    """ Form string"""
+    msg_X = ""
+    if X is not None:
+        msg_X = ""
+        (n, m) = X.shape
+        for i in range(n):
+            msg_line = "{:<4d}".format(i)
+            for j in range(m):
+                msg_line = msg_line + "{:<10.4f} ".format(X[i, j])
+            msg_X = msg_X + msg_line + "\n"
+    return msg_X
+
 if __name__ == "__main__":
 
     pass

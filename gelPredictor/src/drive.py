@@ -7,15 +7,15 @@ import pandas as pd
 from pathlib import Path
 
 from sys_util.parseConfig import SHRT_ANN_MODEL_TYPES, SHRT_ANN_MODEL_DICT, N_STEPS, SHRT_EPOCHS, SHRT_HIDDEN_LAYERS, \
-    SHRT_DROPOUT, SHRT_FEATURES, SHRT_UNITS, TS_NAME, TS_TIMESTAMP_LABEL, PATH_REPOSITORY, LOG_FOLDER_NAME
+    SHRT_DROPOUT, SHRT_FEATURES, SHRT_UNITS, TS_NAME, TS_TIMESTAMP_LABEL, PATH_REPOSITORY, LOG_FOLDER_NAME, \
+    TRAIN_FOLDER, AUX_TRAIN_FOLDER
 from sys_util.utils import  exec_time
 from src.vshrtrmModels import MLP, CNN, LSTM
 from src.vshtrm import VeryShortTerm
 
 logger=logging.getLogger(__name__)
 
-TRAIN_FOLDER = Path(LOG_FOLDER_NAME / Path("TrainPath"))
-TRAIN_FOLDER.mkdir(parents=True, exist_ok=True)
+
 
 def drive_all_classes(shrt_data:VeryShortTerm = None):
     """ Train ANN models for all classes"""

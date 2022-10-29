@@ -12,8 +12,9 @@ from sklearn.decomposition import PCA
 import logging
 
 from src.block import Block
-from sys_util.parseConfig import PATH_LOG_FOLDER , PATH_REPOSITORY, PATH_CHART_LOG, TRAIN_RATIO, VAL_RATIO
-from sys_util.utils import simpleScalingImgShow
+from sys_util.parseConfig import PATH_LOG_FOLDER , PATH_REPOSITORY, PATH_CHART_LOG, TRAIN_RATIO, VAL_RATIO, \
+    TRAIN_FOLDER, AUX_TRAIN_FOLDER
+from sys_util.utils import simpleScalingImgShow, matrix2string
 from src.hmm import hmm
 
 logger = logging.getLogger(__name__)
@@ -200,7 +201,7 @@ Charts               : {self.chart_log}
         self.n4cnnTrain = self.n_train + self.n_val
         self.lstOffsetSegment = []
         n_seg=0
-        while (n_seg * self.segment_size <=self.n4cnnTrain):
+        while (n_seg * self.segment_size <self.n4cnnTrain):
             self.lstOffsetSegment.append(n_seg * self.segment_size)  # segments without overlap
 
             if self.overlap >0:       # segments with overlap
@@ -267,6 +268,8 @@ The overlap                                  : {self.overlap}
         #     self.StatesExtraction()
         #     return
 
+        after_pca_centers = None
+        Xpca = None
         X=np.zeros(shape=(len(self.lstOffsetSegment),self.segment_size))
         (n,m) =X.shape
         for i in range(n):
@@ -297,8 +300,21 @@ The overlap                                  : {self.overlap}
             self.lstBlocks[i].desire = kmeans.labels_[i]
 
         # generation blocks for centers
+        if self.compress == "pca":
+            pca_centers = kmeans.cluster_centers_
+            after_pca_centers = self.getCentersAfterPCA(pca_centers =  pca_centers)
         for i in range(self.num_classes):
 
+            if self.compress == "pca":
+                blck = Block(x=after_pca_centers[i, :],
+                             sampling=self.sampling,
+                             timestamp="N/A",
+                             index=i,
+                             isTrain=True,
+                             wav=self.wav,
+                             scales=self.scales,
+                             desire=i)
+            else:
                blck =Block(x=kmeans.cluster_centers_[i,:],
                      sampling=self.sampling,
                      timestamp="N/A",
@@ -307,10 +323,54 @@ The overlap                                  : {self.overlap}
                      wav=self.wav,
                      scales=self.scales,
                      desire=i)
-               blck.scalogramEstimation()
-               title = "Scalogram  Center Class_{}".format(i)
-               file_png = str( Path( Path(self.chart_log)/Path(title)).with_suffix(".png"))
-               simpleScalingImgShow(scalogram = blck.scalogram, index=i, title = title, file_png=file_png)
+
+            self.aux_log( X=X, Xpca=Xpca, after_pca_centers=after_pca_centers)
+            blck.scalogramEstimation()
+            title = "Scalogram  Center Class_{}".format(i)
+            file_png = str( Path( Path(self.chart_log)/Path(title)).with_suffix(".png"))
+            simpleScalingImgShow(scalogram = blck.scalogram, index=i, title = title, file_png=file_png)
+        return
+
+    def getCentersAfterPCA(self, pca_centers:np.array = None)->np.array:
+
+        after_pca_centers=np.zeros(shape=(self.num_classes, self.segment_size), dtype=float)
+        number_in_cluster=np.zeros(shape=(self.num_classes), dtype=int)
+        for item in self.lstBlocks:
+            for i in range(self.segment_size):
+                number_in_cluster[item.desire]=number_in_cluster[item.desire] + 1
+                after_pca_centers[item.desire,i] = after_pca_centers[item.desire,i] + item.x[i]
+        (cl,n) = after_pca_centers.shape
+        for cluster in range(cl):
+            for i in range(n):
+                after_pca_centers[cluster,i] = after_pca_centers[cluster,i]/float(number_in_cluster[cluster])
+        return after_pca_centers
+
+    def aux_log(self, X: np.array =None, Xpca:np.array = None, after_pca_centers:np.array = None):
+        aux_log_file = Path(AUX_TRAIN_FOLDER / Path("aux_pca_transform")).with_suffix(".log")
+        self.log.info(" PCA transfor aux.data are logging in {}\n".format(str(aux_log_file)))
+
+        msg_pca_centers = matrix2string(after_pca_centers)
+        msg_X = matrix2string(X=X)
+        msg_Xpca = matrix2string(X=Xpca)
+
+
+
+        message=f"""
+        Center clusters after pca-transformation
+{msg_pca_centers} 
+
+       
+        Matrix Observations being was transformed
+{msg_X}
+
+
+        Matrix pca-transformed oservations
+{msg_Xpca}
+
+
+"""
+        with open(aux_log_file,'w') as fot:
+            fot.write(message)
         return
 
     def Data4CNN(self)->(np.ndarray,np.ndarray):

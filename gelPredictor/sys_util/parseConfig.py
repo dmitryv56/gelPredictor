@@ -44,6 +44,9 @@ PATH_SHRT_DATASETS         = Path(PATH_LOG_FOLDER / "short_term_Repository")
 PATH_SHRT_MODELS           = Path(PATH_LOG_FOLDER / "short_term_model_Repository")
 PATH_SHRT_CHARTS           = Path(PATH_LOG_FOLDER / SHRT_CHART_LOG)
 PATH_HMM_CHARTS            = Path(PATH_LOG_FOLDER / HMM_CHART_LOG)
+TRAIN_FOLDER               = Path(LOG_FOLDER_NAME / Path("TrainPath"))
+AUX_TRAIN_FOLDER           = Path(LOG_FOLDER_NAME / Path("AuxTrain"))
+
 
 PATH_LOG_FOLDER.mkdir(            parents = True, exist_ok = True)
 PATH_REPOSITORY.mkdir(            parents = True, exist_ok = True)
@@ -54,6 +57,8 @@ PATH_SHRT_DATASETS.mkdir(         parents = True, exist_ok = True)
 PATH_SHRT_MODELS.mkdir(           parents = True, exist_ok = True)
 PATH_SHRT_CHARTS.mkdir(           parents = True, exist_ok = True)
 PATH_HMM_CHARTS.mkdir(            parents = True, exist_ok = True)
+TRAIN_FOLDER.mkdir(               parents = True, exist_ok = True)
+AUX_TRAIN_FOLDER.mkdir(           parents = True, exist_ok = True)
 
 MAX_LOG_SIZE_BYTES=5 * 1024 * 1024
 BACKUP_COUNT=2
