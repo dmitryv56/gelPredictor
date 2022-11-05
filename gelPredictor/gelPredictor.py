@@ -28,7 +28,7 @@ NUM_CLASSES, NUM_SCALES, SAMPLING, TS_NAME, TS_TIMESTAMP_LABEL, SEGMENT_SIZE, PA
 AUX_TRAIN_FOLDER, printInfo
 from sys_util.utils import setOutput
 from src.drive import drive_all_classes
-from src.flow_control import cntrPath,medTrainPath, shrtTrainPath, hmmTrainPath
+from src.flow_control import cntrPath,shrtTermTrainPath, veryShrtTrainPath, hmmTrainPath
 # ------------------------------------------------------------------------------------------------------------------
 
 size_handler = RotatingFileHandler(PATH_MAIN_LOG, mode='a', maxBytes=int(MAX_LOG_SIZE_BYTES),
@@ -46,61 +46,23 @@ logger.info(printInfo())
 def main(argc,argv)->int:
     """ Main function """
 
-    _, log_folder, chart_log = setOutput(model_repository=PATH_REPOSITORY,
-                                         log_folder=PATH_LOG_FOLDER, chart_log=PATH_CHART_LOG)
-
+    _, log_folder, chart_log = setOutput(model_repository=PATH_REPOSITORY, log_folder=PATH_LOG_FOLDER,
+                                         chart_log=PATH_CHART_LOG)
 
     """ Dataset is Control path """
     ds, X, Y = cntrPath()
 
-    # ds = Dataset(pathTo=PATH_TO_DATASET, ts=TS_NAME, dt=TS_TIMESTAMP_LABEL, sampling=SAMPLING,
-    #              segment_size=SEGMENT_SIZE, n_steps=N_STEPS, overlap=OVERLAP,
-    #              continuous_wavelet=CONTINUOUS_WAVELET, norm=DATA_NORMALIZATION, num_classes=NUM_CLASSES,
-    #              model_repository=PATH_REPOSITORY, log_folder=log_folder, chart_log=chart_log)
-    #
-    # ds.readDataset()
-    # ds.data_normalization()
-    # ds.setTrainValTest()
-    # ds.__str__()
-    # ds.createSegmentLst()
-    # ds.ExtStatesExtraction()
-    # ds.initHMM_logClasses()
-    # ds.createExtendedDataset()
-    # ds.hmm.fit(ds.df[ds.ts_name], ds.segment_size)
-    # ds.scalogramEstimation()
-    #
-    # # prepare raw data for Convolution Neural Net
-    # X, Y = ds.Data4CNN()
-    # # n1=ds.n_train_blocks + ds.n_val_blocks
-    # # m1=ds.n_steps
-    # # X=ds.y[:n1*m1].reshape((n1,m1))
+    """ Train path : TS segment to image transformation, image classification. The states extraction. Short-Term 
+    (segment size, i.e. day) resolution. """
+    Cnn = shrtTermTrainPath(ds = ds, X = X, Y = Y)
 
-    """ Train path for med term forecasting"""
-
-    Cnn = medTrainPath(ds = ds, X = X, Y = Y)
-    # Cnn = CNN()
-    # Cnn.chart_folder = chart_log
-    # Cnn.prepare_train_data(train_X=X[:-4, :, :], train_Y=Y[:-4], test_X=X[-4:, :, :], test_Y=Y[-4:])
-    # Cnn.model()
-    # Cnn.fit_cnn()
-    #
-    # Cnn.AccuracyChart()
-
-    """ Train for hmm-model """
+    """ Train  hmm-model for Short Term forecasting. Predict path """
     hmmTrainPath(ds=ds)
 
-    """ Train path for Very Short-Term forecasting """
+    """ Train path for Very Short-Term forecasting. TS sampling resolution) """
+    shrtTerm = veryShrtTrainPath(ds=ds)
 
-    shrtTerm = shrtTrainPath(ds=ds)
 
-    #
-    # shrtTerm = VeryShortTerm(num_classes=ds.num_classes, segment_size=ds.segment_size, n_steps=N_STEPS, df=ds.df,
-    #                      dt_name=ds.dt_name, ts_name=ds.ts_name, exogen_list=[ds.dt_name, ds.ts_name],
-    #                      list_block=ds.lstBlocks, repository_path=PATH_SHRT_DATASETS)
-    # for i in range(ds.num_classes):
-    #     shrtTerm.createDS(i)
-    #
-    # drive_all_classes(shrt_data=shrtTerm)
 
     logger.info('\n\n==============================================================================================')
     logger.info('\n==============================================================================================')

@@ -13,7 +13,7 @@ import logging
 
 from src.block import Block
 from sys_util.parseConfig import PATH_LOG_FOLDER , PATH_REPOSITORY, PATH_CHART_LOG, TRAIN_RATIO, VAL_RATIO, \
-    TRAIN_FOLDER, AUX_TRAIN_FOLDER
+    TRAIN_FOLDER, AUX_TRAIN_FOLDER, PATH_SHRT_CHARTS
 from sys_util.utils import simpleScalingImgShow, matrix2string
 from src.hmm import hmm
 
@@ -98,23 +98,24 @@ class Dataset(Dau):
                          chart_log = chart_log)
         """ Constructor"""
 
-        self.pathToCsv = pathTo
-        self.df: pd.DataFrame = None
-        self.y       = None
-        self.dt      = None
-        self.n       = 0
-        self.mean    = 0.0
-        self.std     = 1.0
-        self.min     = 0.0
-        self.max     = 1.0
-        self.n_train = 0
-        self.n_val   = 0
-        self.n_test  = 0
-        self.n_train_blocks = 0
-        self.n_val_blocks = 0
-        self.lstBlocks=[]
-        self.lstOffsetSegment = []
-        self.hmm = hmm()
+        self.pathToCsv          = pathTo
+        self.df: pd.DataFrame   = None
+        self.y                  = None
+        self.dt                 = None
+        self.n                  = 0
+        self.mean               = 0.0
+        self.std                = 1.0
+        self.min                = 0.0
+        self.max                = 1.0
+        self.n_train            = 0
+        self.n_val              = 0
+        self.n_test             = 0
+        self.n_train_blocks     = 0
+        self.n_val_blocks       = 0
+        self.lstBlocks          = []
+        self.lstOffsetSegment   = []
+        self.blck_class_centers = []
+        self.hmm                = hmm()
 
 
     def __str__(self):
@@ -303,10 +304,12 @@ The overlap                                  : {self.overlap}
         if self.compress == "pca":
             pca_centers = kmeans.cluster_centers_
             after_pca_centers = self.getCentersAfterPCA(pca_centers =  pca_centers)
+            self.aux_log(X=X, Xpca=Xpca, after_pca_centers=after_pca_centers)
+
         for i in range(self.num_classes):
 
             if self.compress == "pca":
-                blck = Block(x=after_pca_centers[i, :],
+                bclk_class_center = Block(x=after_pca_centers[i, :],
                              sampling=self.sampling,
                              timestamp="N/A",
                              index=i,
@@ -314,8 +317,9 @@ The overlap                                  : {self.overlap}
                              wav=self.wav,
                              scales=self.scales,
                              desire=i)
+
             else:
-               blck =Block(x=kmeans.cluster_centers_[i,:],
+               bclk_class_center =Block(x=kmeans.cluster_centers_[i,:],
                      sampling=self.sampling,
                      timestamp="N/A",
                      index=i,
@@ -324,11 +328,51 @@ The overlap                                  : {self.overlap}
                      scales=self.scales,
                      desire=i)
 
-            self.aux_log( X=X, Xpca=Xpca, after_pca_centers=after_pca_centers)
-            blck.scalogramEstimation()
+            bclk_class_center.scalogramEstimation()
             title = "Scalogram  Center Class_{}".format(i)
             file_png = str( Path( Path(self.chart_log)/Path(title)).with_suffix(".png"))
-            simpleScalingImgShow(scalogram = blck.scalogram, index=i, title = title, file_png=file_png)
+            simpleScalingImgShow(scalogram = bclk_class_center.scalogram, index=i, title = title, file_png=file_png)
+            self.blck_class_centers.append(bclk_class_center)  # save in the list of objects for the class centers
+
+        self.chartClassCenters()
+        self.logClassCenters()
+        return
+
+    def chartClassCenters(self):
+
+        fl_chart=Path(PATH_SHRT_CHARTS/"States_examples").with_suffix(".png")
+        legend_color ={"state 0":'b',     "state 1":'g',     "state 2":'r',     "state 3":'k',    "state 4":'o',
+                       "state 5": 'b-',   "state 6": 'g-',   "state 7": 'r-',   "state 8": 'k-',  "state 9": 'o-',
+                       "state 10": 'b--', "state 11": 'g--', "state 12": 'r--', "state 13": 'k-', "state 14": 'o--'
+                       }
+        legend =tuple([name for name,clr  in list(legend_color.items())[:self.num_classes]])
+        x_axis = [i for i in range(self.segment_size)]
+        plt.figure()
+        i=0
+        for key in (list(legend_color.values())[:self.num_classes]):
+            plt.plot(x_axis, self.blck_class_centers[i].x, key)
+            i = i +1
+
+        plt.legend(legend, loc='best')
+        plt.grid(True)
+        plt.savefig(fl_chart)
+        plt.close("all")
+
+    def logClassCenters(self):
+        """ Log"""
+        msg = ""
+        for item in self.blck_class_centers:
+            msg_class = "{:<3d} ".format(item.desire)
+            (m,)=item.x.shape
+            for j in range(m):
+                if j>0 and (j%8 == 0):
+                    msg_class = msg_class + "\n     "
+                msg_class = msg_class + "{:<10.4f}".format(item.x[j])
+            msg = msg + "{}\n".format(msg_class)
+        fl_out =Path(TRAIN_FOLDER / Path("State_typical_vector")).with_suffix(".log")
+        with open(fl_out,'w') as fout:
+            fout.write(msg)
+        self.log.info("Typical values for states logged into {}".format(fl_out))
         return
 
     def getCentersAfterPCA(self, pca_centers:np.array = None)->np.array:

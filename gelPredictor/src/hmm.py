@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+""" HMM operates with original (not normalized) time series."""
 import logging
 import numpy as np
 

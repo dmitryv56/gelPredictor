@@ -462,6 +462,8 @@ def matrix2string(X:np.array=None)->str:
             msg_X = msg_X + msg_line + "\n"
     return msg_X
 
+
+
 if __name__ == "__main__":
 
     pass
