@@ -247,7 +247,9 @@ def hmmPredpath(ds:Dataset=None, viterbi_path:np.array=None, num_predictions:int
 def shorttermForecastChart(ds:Dataset = None, predicted_states:list = None ):   # TODO
     pass
 
+    if 1 : return
 
+    # TBD
     predict_ll =[ ds.blck_class_centers[i].x for i in predicted_states]  # list of lists [[..],..,[..]]
     predict = [item for sublist in predict_ll for item in sublist ]  # flatten list [..]
     test_start= (ds.n_train_blocks + ds.n_val_blocks) * ds.segment_size

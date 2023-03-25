@@ -158,13 +158,7 @@ covariance matrix of m-dimensional observations.
 """
 def emisMLE_ext(yy: np.array = None, n_block:int=48, state_sequence: list = [], states: list = []) -> np.array:
     pass
-u
-=
-L
-L
-L
-=
-s
+
     """ mean values per day """
     ext_seg = []
 
