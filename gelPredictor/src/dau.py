@@ -12,11 +12,17 @@ from sklearn.decomposition import PCA
 import logging
 
 from src.block import Block
-from sys_util.parseConfig import PATH_LOG_FOLDER , PATH_REPOSITORY, PATH_CHART_LOG, TRAIN_RATIO, VAL_RATIO
+from sys_util.parseConfig import PATH_LOG_FOLDER , PATH_REPOSITORY, PATH_CHART_LOG, TRAIN_RATIO, VAL_RATIO, \
+    TS_DEMAND_NAME
 from sys_util.utils import simpleScalingImgShow
 from src.hmm import hmm
+from sys_util.parseConfig import STATE_0_MARGE, STATE_0, STATE_DEMAND, STATE_GENERATION
 
 logger = logging.getLogger(__name__)
+FIRST_DAY_IN_WEEK = 1
+LAST_DAY_IN_WEEK  = 7
+FIRST_MONTH       = 1
+LAST_MONTH        = 12
 
 class Dau(object):
     """Data Aquisiation Unit is responsible for communicating with the data source.
@@ -114,9 +120,10 @@ class Dataset(Dau):
         self.lstBlocks=[]
         self.lstOffsetSegment = []
         self.hmm = hmm()
-
+        self.printed = False
 
     def __str__(self):
+
         msg=f"""
         
         
@@ -140,8 +147,9 @@ Aux Log Folder       : {self.log_folder}
 Charts               : {self.chart_log}
 
 """
-        self.log.info(msg)
-        print(msg)
+        self.printed =True
+        if self.printed: msg =""
+
         return msg
 
     def readDataset(self):
@@ -152,6 +160,28 @@ Charts               : {self.chart_log}
 
         self.frequencies = pywt.scale2frequency(self.wavelet, self.scales) / self.sampling
         self.max_wav_len = (0 if not self.scales else int(np.max(self.scales) * self.width) )
+
+        min_y = self.y.min()
+        ind_min =self.y.argmin()
+        max_y = self.y.max()
+        ind_max = self.y.argmax()
+        aver  = self.y.mean()
+        std   = self.y.std()
+        f_Naik= 1.0/(2.0 *self.sampling)
+        delta_f =1.0/(self.n * self.sampling)
+
+        message = f"""
+Min Value         : {min_y} MWT, index {ind_min}, date {self.dt[ind_min]}
+Max_Value         : {max_y} MWT, index {ind_max}, date {self.dt[ind_max]}
+Aver. Value       : {aver}  MWT
+S.T.D.            : {std}
+Sampling          : {self.sampling} sec, {self.sampling/60} minutes
+Nayquist freq     : {f_Naik} Hz
+Frequency sampling: {delta_f}Hz
+
+"""
+        self.log.info(message)
+
 
     def data_normalization(self):
 
@@ -190,7 +220,133 @@ Charts               : {self.chart_log}
         self.n_train=self.segment_size * self.n_train_blocks
         self.n_val = self.segment_size * self.n_val_blocks
         self.n_test = self.n - self.n_train -self.n_val
+        return
 
+
+
+
+    """ This method aims on the aggregation a day's observations in the segments (blocks). Each block has desired label 
+    'day in week'."""
+    def createSegmentLstPerDay(self):
+        self.n4cnnTrain = self.n_train + self.n_val
+        self.lstOffsetSegment = []
+        n_seg = 0
+        while (n_seg * self.segment_size <= self.n4cnnTrain):
+            self.lstOffsetSegment.append(n_seg * self.segment_size)  # segments without overlap
+            n_seg = n_seg + 1
+
+        msg = ""
+
+        self.lstOffsetSegment.sort()
+        k = 0
+        for item in self.lstOffsetSegment:
+            msg = msg + "{:<6d} ".format(item)
+            k = k + 1
+            if k % 16 == 0:
+                msg = msg + "\n"
+
+        message = f"""
+        The size of train part of TS for CNN learning: {self.n4cnnTrain} 
+        The number of segments (blocks)              : {len(self.lstOffsetSegment)} 
+        The overlap                                  : {self.overlap}
+
+                               Segment offsets
+        {msg}
+                """
+        print(message)
+        self.log.info(message)
+
+        for start_block in self.lstOffsetSegment:
+            self.lstBlocks.append(
+                Block(x=self.y[start_block:start_block + self.segment_size],
+                      sampling=self.sampling,
+                      timestamp=self.dt[start_block],
+                      index=start_block,
+                      isTrain=True,
+                      wav=self.wav,
+                      scales=self.scales,
+                      desire=self.df[TS_DEMAND_NAME].values[start_block])
+                            )
+
+        return
+
+    """ This method aims for segments (blocks) averaging."""
+    def averSegments(self):
+        self.d_aver={}
+        d_count={}
+        for i in range(FIRST_DAY_IN_WEEK-1,LAST_DAY_IN_WEEK + 1):
+            self.d_aver[i] = [0 for i in range(self.segment_size)]
+            d_count[i] = 0
+
+
+        wav =None
+        for block in self.lstBlocks:
+            i= block.desire
+            if wav is None:
+                wav=block.wav
+            d_count[i] = d_count[i] +1
+            for j in range(self.segment_size):
+                self.d_aver[i][j] =self.d_aver[i][j] + block.x[j]
+        for i in range(FIRST_DAY_IN_WEEK,LAST_DAY_IN_WEEK + 1):
+            for j in range(self.segment_size):
+                self.d_aver[i][j] = self.d_aver[i][j]/d_count[i]
+
+        for day in range(FIRST_DAY_IN_WEEK,LAST_DAY_IN_WEEK + 1):
+            self.scalogramImage(x=np.array(self.d_aver[day]), day=day, month = 0, wav=wav)
+
+
+        return
+
+    def averMonthSegments(self):
+        self.d_aver_month={}
+        d_count={}
+        for month in range(FIRST_MONTH-1,LAST_MONTH + 1):
+            self.d_aver_month[month] = {day:[0 for i in range(self.segment_size)] for day in range\
+                (FIRST_DAY_IN_WEEK-1, LAST_DAY_IN_WEEK + 1)}
+            d_count[month] = [0 for day in range(FIRST_DAY_IN_WEEK-1,LAST_DAY_IN_WEEK + 1)]
+
+        wav = None
+        for block in self.lstBlocks:
+            try:
+                month = self.df["Month_"].values[block.index]
+                day= block.desire
+                d_count[month][day] = d_count[month][day] +1
+                if wav is None:
+                    wav = block.wav
+            except:
+                pass
+            for j in range(self.segment_size):
+                self.d_aver_month[month][day][j] =self.d_aver_month[month][day][j] + block.x[j]
+        for month in range(FIRST_MONTH,LAST_MONTH + 1):
+            for day in range(FIRST_DAY_IN_WEEK, LAST_DAY_IN_WEEK + 1):
+                for j in range(self.segment_size):
+                    self.d_aver_month[month][day][j] = self.d_aver_month[month][day][j]/d_count[month][day]
+        for month in range(FIRST_MONTH, LAST_MONTH + 1):
+            for day in range(FIRST_DAY_IN_WEEK,LAST_DAY_IN_WEEK + 1):
+                self.scalogramImage(x=np.array(self.d_aver_month[month][day]), day=day, month = month, wav=wav)
+
+        return
+
+    def scalogramImage(self,x:np.array=None, scales:list = [i + 1 for i in range(32)], day:int = 0, month:int=0,wav:object = None):
+
+        if wav is None:
+            return
+        if day == 0:
+            return
+        if month == 0:
+            title="Average for {}day ".format(day)
+        else :
+            title="Average for {} month {} day".format(month,day)
+        scalogram, freqs = pywt.cwt(x, scales, wav)
+
+        file_png = str(Path(Path(self.chart_log) / Path(title)).with_suffix(".png"))
+        simpleScalingImgShow(scalogram=scalogram, index=0, title=title, file_png=file_png)
+        return
+
+
+    """ THis method aims on the aggregation observations. Common algorithm description is below:
+    TBD    moved to predictorPath
+    """
     def createSegmentLst(self):
 
         """ Create list of offset for all segments of self.segment_size along train part of TS.
@@ -260,6 +416,8 @@ The overlap                                  : {self.overlap}
         #                                 wav=self.wav, scales=self.scales))
         #     start_block = start_block + self.segment_size
 
+    def ImbalanceStateExtraction(self):
+        pass
 
     def ExtStatesExtraction(self):
 
@@ -402,5 +560,139 @@ def plotClusters(kmeans: KMeans, X: np.array, file_png:Path):
     plt.savefig(file_png)
     plt.close("all")
     return
+
+1
+# ----------------------------------------------------------------------------------------------------------
+
+class DatasetImbalance(Dau):
+    """ Class for csv -file reading and processing.
+    Class members:
+    pathToCsv - path to file with historical observations.
+    df - pandas' DataFrame.
+    y - time series (TS), historical observations.
+    x1- time series (TS), historical observations.
+    x2 - time series (TS), historical observations.
+    dt - time labels (timestamps) for observation.
+    n - size of TS.
+    mean, std,min, max -simple stat.parameters of TS.
+    n_train, n_val, n_test -split TS of size n on train sequence of size n_train, validation and test sequences.
+    n_train_blocks, n_val_blocks - TS splits on segments (blocks) are using for mid term forecasting.
+    lstBlocks - the list which contains block objects (implementation of Block class.
+    lstOffsetSegment -the which contains the offset of segments in  TS for each block.
+    hmm - hidden markov model object
+
+    Class methods:
+    __init__  - constructor
+    __str__
+    readDataset
+    data_normalization
+    data_inv_normalization
+    setTrainValTest
+    createSegmentLst
+    ExtStatesExtraction
+    Data4CNN
+    initHMM_logClasses
+    scalogramEstimation
+    """
+
+    def __init__(self, pathTo: str = "", ts: str = "", ts_x1: str = "", ts_x2: str = "", dt: str = "Date Time",
+                 sampling: int = 10 * 60, n_steps: int = 144, segment_size: int = 96, norm: str = "stat",
+                 overlap: int = 0, continuous_wavelet: str = 'mexh', num_classes: int = 4, num_scales: int = 16,
+                 compress: str = 'pca', n_components: int = 2, model_repository: Path = PATH_REPOSITORY,
+                 log_folder: Path = PATH_LOG_FOLDER, chart_log: Path = PATH_CHART_LOG):
+        """ Constructor """
+
+        super().__init__(ts=ts, dt=dt, sampling=sampling, n_steps=n_steps, segment_size=segment_size,
+                         norm=norm, overlap=overlap, continuous_wavelet=continuous_wavelet,
+                         num_classes=num_classes, num_scales=num_scales, compress=compress,
+                         n_components=n_components, model_repository=model_repository, log_folder=log_folder,
+                         chart_log=chart_log)
+        """ Constructor"""
+
+        self.pathToCsv = pathTo
+        self.df: pd.DataFrame = None
+        self.y = None
+        self.x1 = None
+        self.x2 = None
+        self.x1_name = ts_x1
+        self.x2_name = ts_x2
+        self.dt = None
+        self.n = 0
+        self.mean = 0.0
+        self.std = 1.0
+        self.min = 0.0
+        self.max = 1.0
+        self.n_train = 0
+        self.n_val = 0
+        self.n_test = 0
+        self.n_train_blocks = 0
+        self.n_val_blocks = 0
+        self.lstBlocks = []
+        self.lstOffsetSegment = []
+        self.hmm = hmm()
+        self.states = []
+        self.ext_states = []
+
+    def __str__(self):
+        msg = f"""
+
+Dataset              : {self.pathToCsv}
+TS name              : {self.ts_name}  
+TS (X1) name         : {self.x1_name}  
+TS (X2) name         : {self.x2_name}
+Timestamp labels     : {self.dt_name}  
+Data Normalization   : {self.norm}
+TS mean              : {self.mean}     TS std : {self.std} TS length : {self.n} 
+Sampling             : {self.sampling} sec 
+Segment Size         : {self.segment_size}  Train blocks : {self.n_train_blocks} Validation blocks : {self.n_val_blocks}
+Train Size           : {self.n_train}  Validation Size : {self.n_val}  Test Size: {self.n_test} 
+
+Wavelet              : {self.wav}
+Scales               : {self.scales}
+Frequencies,Hz       : {self.frequencies}
+Wavelet wigth        : {self.width} Max len :{self.max_wav_len}
+
+Classification
+Data Compress Method : {self.compress}
+Number components    : {self.n_components}
+
+Model Repository     : {self.model_repository}
+Aux Log Folder       : {self.log_folder}
+Charts               : {self.chart_log}
+
+"""
+        self.log.info(msg)
+        print(msg)
+        return msg
+
+    def readDataset(self):
+        self.df = pd.read_csv(self.pathToCsv)
+        self.n = len(self.df)
+        self.y = self.df[self.ts_name].values
+        self.x1 = self.df[self.x1_name].values
+        self.x2 = self.df[self.x1_name].values
+        self.dt = self.df[self.dt_name].values
+
+        self.frequencies = pywt.scale2frequency(self.wavelet, self.scales) / self.sampling
+        self.max_wav_len = (0 if not self.scales else int(np.max(self.scales) * self.width))
+
+    def StatesExtraction(self):
+        self.states =[]
+        for i in range(0,len(self.y)):
+            if abs(self.y[i])<=STATE_0_MARGE :
+                self.states.append(STATE_0)
+            elif  self.y[i]*(-1)>STATE_0_MARGE :
+                self.states.append(STATE_DEMAND)
+            elif self.y[i]  > STATE_0_MARGE:
+                self.states.append(STATE_GENERATION)
+
+    def createExtendedDataset(self):
+        """ Create """
+        df1 = pd.read_csv(self.pathToCsv)
+
+        df1["states"]=self.states
+        ext_DS=self.pathToCsv.stem
+        path_ext_DS= Path( PATH_LOG_FOLDER / Path("{}_{}_states".format(ext_DS, self.num_classes))).with_suffix(".csv")
+        df1.to_csv(path_ext_DS, index=False)
 if __name__ == "__main__":
     pass

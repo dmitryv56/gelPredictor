@@ -2,12 +2,34 @@
 
 import sys
 from os import getcwd
+from os.path import basename
 import configparser
 from pathlib import Path
 
+PROGRAM_NAME_GELPREDICTOR   = 'gelPredictor.py'
+PROGRAM_NAME_STATEEXTRACTOR = 'stateExtract.py'
+PROGRAM_NAME_GELANALYZER    = 'gelAnalyzer.py'
+PROGRAM_NAME_GELDEMAND      = 'gelDemand.py'
 
-FORECASTING_OBJECT = "Power_Solar_5_20"
-FORECASTING_OBJECT_TITLE = "Power Solar Sunshine 5-20"
+if basename(sys.argv[0]) == PROGRAM_NAME_GELPREDICTOR:
+
+    FORECASTING_OBJECT = "Power_Solar_5_20"
+    FORECASTING_OBJECT_TITLE = "Power Solar Sunshine 5-20"
+elif basename(sys.argv[0]) == PROGRAM_NAME_STATEEXTRACTOR :
+    FORECASTING_OBJECT = "ElHierro2012_2014"
+    FORECASTING_OBJECT_TITLE = "El-Hierro (2012-2014)"
+elif basename(sys.argv[0]) == PROGRAM_NAME_GELANALYZER :
+    FORECASTING_OBJECT = "Demand"
+    FORECASTING_OBJECT_TITLE = "Demand El-Hierro (2012-2014)"
+elif basename(sys.argv[0]) == PROGRAM_NAME_GELDEMAND :
+    # FORECASTING_OBJECT = "Demand_3state"
+    # FORECASTING_OBJECT_TITLE = "Demand El-Hierro (2012-2014)"
+    FORECASTING_OBJECT = "PowerSolar_detrend_3state"
+    FORECASTING_OBJECT_TITLE = "Detrend Power Solar(2021) "
+else:
+    FORECASTING_OBJECT = "Forecating_object"
+    FORECASTING_OBJECT_TITLE = "Forecating_object"
+
 # Paths and e.t.c
 #German Electricity
 # LOG_FOLDER_NAME="log_electricity_5"
@@ -64,13 +86,114 @@ BACKUP_COUNT=2
 # PATH_TO_DATASET= Path(PATH_DATASET_REPOSITORY / "Electricity_generation_in_Germany_2020_2022").with_suffix(".csv")
 
 # Power Solar
-PATH_TO_DATASET= Path(PATH_DATASET_REPOSITORY / "PowerSolar_2021_5_20").with_suffix(".csv")
+if basename(sys.argv[0]) == PROGRAM_NAME_GELPREDICTOR :
+    PATH_TO_DATASET= Path(PATH_DATASET_REPOSITORY / "PowerSolar_2021_5_20").with_suffix(".csv")
+    TS_NAME            = "Power_Solar"
+    TS_GENERATION_NAME = ""
+    TS_DEMAND_NAME     = ""
+    # TS hypeparameters
+    SAMPLING = 60 * 60  # German Electricity15 * 60
+    SEGMENT_SIZE = 16  # 96  # size of segments over ts. The segment are being transformed to scalograms.
+    OVERLAP = 0  # sigments overlap. If 0 then the sigments are adjacent and number of segments over TS
+    # is [n/n_step].
+    # If 0 < overlap < n_step then  number of segment is the following sum
+    #  while (n-k*overlap<=n_step):
+    #         nn=nn+[n-k*overlap)/n_step] , where k=0,1,..
+    N_STEPS = 12  # size of sliding block over ts. They form learning-data inputs for multilayer and LSTM
+    # neural nets.
+    NUM_SCALES = 12  # scale for wavelet
+    DATA_NORMALIZATION = 'norm'  # 'norm' -normalazation 0.0-1.0; 'stat'-statistical nomalization; 'other' -no normalization
+    CONTINUOUS_WAVELET = 'mexh'  # see in imported 'pywt'-package
+    # CNN Hyperparams
+    NUM_CLASSES = 11
+elif basename(sys.argv[0]) == PROGRAM_NAME_STATEEXTRACTOR :
+    PATH_TO_DATASET= Path(PATH_DATASET_REPOSITORY / "ElHierro_2012_2014").with_suffix(".csv")
+    TS_NAME            = "Imbalance"
+    TS_GENERATION_NAME = "Diesel"
+    TS_DEMAND_NAME     = "Demand"
+    # TS hypeparameters
+    SAMPLING = 10 * 60  #
+    SEGMENT_SIZE = 144  #
+    OVERLAP = 0  # sigments overlap. If 0 then the sigments are adjacent and number of segments over TS
+    # is [n/n_step].
+    # If 0 < overlap < n_step then  number of segment is the following sum
+    #  while (n-k*overlap<=n_step):
+    #         nn=nn+[n-k*overlap)/n_step] , where k=0,1,..
+    N_STEPS = 32  # size of sliding block over ts. They form learning-data inputs for multilayer and LSTM
+    # neural nets.
+    NUM_SCALES = 12  # scale for wavelet
+    DATA_NORMALIZATION = 'norm'  # 'norm' -normalazation 0.0-1.0; 'stat'-statistical nomalization; 'other' -no normalization
+    CONTINUOUS_WAVELET = 'mexh'  # see in imported 'pywt'-package
+    # CNN Hyperparams
+    NUM_CLASSES = 11
+elif basename(sys.argv[0]) == PROGRAM_NAME_GELANALYZER :
+    PATH_TO_DATASET = Path(PATH_DATASET_REPOSITORY / "ElHierro_2012_2014").with_suffix(".csv")
+    TS_NAME = "Demand"
+    TS_GENERATION_NAME = "Diesel"
+    TS_DEMAND_NAME = "Day_In_Week"
+    # TS hypeparameters
+    SAMPLING = 10 * 60  #
+    SEGMENT_SIZE = 144  #
+    OVERLAP = 0  # sigments overlap. If 0 then the sigments are adjacent and number of segments over TS
+    # is [n/n_step].
+    # If 0 < overlap < n_step then  number of segment is the following sum
+    #  while (n-k*overlap<=n_step):
+    #         nn=nn+[n-k*overlap)/n_step] , where k=0,1,..
+    N_STEPS = 32  # size of sliding block over ts. They form learning-data inputs for multilayer and LSTM
+    # neural nets.
+    NUM_SCALES = 12  # scale for wavelet
+    DATA_NORMALIZATION = 'norm'  # 'norm' -normalazation 0.0-1.0; 'stat'-statistical nomalization; 'other' -no normalization
+    CONTINUOUS_WAVELET = 'mexh'  # see in imported 'pywt'-package
+    # CNN Hyperparams
+    NUM_CLASSES = 11
+elif basename(sys.argv[0]) == PROGRAM_NAME_GELDEMAND :
+    # PATH_TO_DATASET = Path(PATH_DATASET_REPOSITORY / "ElHierro_2012_2014").with_suffix(".csv")
+    PATH_TO_DATASET = Path(PATH_DATASET_REPOSITORY / "SolarPlantPowerGen_21012020_Light").with_suffix(".csv")
+    # TS_NAME = "Demand"
+    TS_NAME = "Power_Solar"
+    TS_GENERATION_NAME = "Diesel"
+    TS_DEMAND_NAME = "Day_In_Week"
+    # TS hypeparameters
+    SAMPLING = 10 * 60  # 10 * 60  #
+    SEGMENT_SIZE = 72  # 144  #
+    OVERLAP = 0
+    N_STEPS = 36  # size of sliding block over ts. They form learning-data inputs for multilayer and LSTM
+    # neural nets.
+    NUM_SCALES = 16  # scale for wavelet
+    DATA_NORMALIZATION = 'other'  # 'norm' -normalazation 0.0-1.0; 'stat'-statistical nomalization; 'other' -no normalization
+    CONTINUOUS_WAVELET = 'mexh'  # see in imported 'pywt'-package
+    # CNN Hyperparams
+    NUM_CLASSES = 3
+else:
+    PATH_TO_DATASET = Path(PATH_DATASET_REPOSITORY / "ElHierro_2012_2014").with_suffix(".csv")
+    TS_NAME = "Imbalance"
+    TS_GENERATION_NAME = "Diesel"
+    TS_DEMAND_NAME = "Demand"
+    # TS hypeparameters
+    SAMPLING = 10 * 60  #
+    SEGMENT_SIZE = 144  #
+    OVERLAP = 0  # sigments overlap. If 0 then the sigments are adjacent and number of segments over TS
+    # is [n/n_step].
+    # If 0 < overlap < n_step then  number of segment is the following sum
+    #  while (n-k*overlap<=n_step):
+    #         nn=nn+[n-k*overlap)/n_step] , where k=0,1,..
+    N_STEPS = 32  # size of sliding block over ts. They form learning-data inputs for multilayer and LSTM
+    # neural nets.
+    NUM_SCALES = 12  # scale for wavelet
+    DATA_NORMALIZATION = 'norm'  # 'norm' -normalazation 0.0-1.0; 'stat'-statistical nomalization; 'other' -no normalization
+    CONTINUOUS_WAVELET = 'mexh'  # see in imported 'pywt'-package
+    # CNN Hyperparams
+    NUM_CLASSES = 10
 
+
+
+TS_TIMESTAMP_LABEL = "Date Time"
 
 # CNN Hyperparams
+
 BATCH_SIZE   = 64
 EPOCHS       = 20 #10
-NUM_CLASSES  = 11
+# NUM_CLASSES  = 11
 ALFA_RELU    = 0.1
 DROPOUT      = 0.25
 DENSE_INPUT  = 128
@@ -83,24 +206,6 @@ N_COMPONENTS = 2
 # TS
 # German Electricity
 #TS_NAME = "Wind_offshore_50Hertz"
-
-# Power Solar
-TS_NAME            = "Power_Solar"
-TS_TIMESTAMP_LABEL = "Date Time"
-
-# TS hypeparameters
-SAMPLING           = 60 * 60  #  German Electricity15 * 60
-SEGMENT_SIZE       = 16 # 96  # size of segments over ts. The segment are being transformed to scalograms.
-OVERLAP            = 0        # sigments overlap. If 0 then the sigments are adjacent and number of segments over TS
-                              # is [n/n_step].
-                              # If 0 < overlap < n_step then  number of segment is the following sum
-                              #  while (n-k*overlap<=n_step):
-                              #         nn=nn+[n-k*overlap)/n_step] , where k=0,1,..
-N_STEPS             = 12      # size of sliding block over ts. They form learning-data inputs for multilayer and LSTM
-                              # neural nets.
-NUM_SCALES          = 12      # scale for wavelet
-DATA_NORMALIZATION  = 'norm'  # 'norm' -normalazation 0.0-1.0; 'stat'-statistical nomalization; 'other' -no normalization
-CONTINUOUS_WAVELET  = 'mexh'  # see in imported 'pywt'-package
 
 
 # Short-Term forecasting ANN
@@ -116,6 +221,12 @@ SHRT_UNITS               = 64
 SHRT_MIN_TRAIN_DATA_SIZE = 2 * N_STEPS
 SHRT_TRAIN_PART          = 0.7
 SHRT_VAL_PART            = 1.0 - SHRT_TRAIN_PART
+
+# Imbalance state rules
+STATE_0 = 0
+STATE_DEMAND = 1
+STATE_GENERATION = 2
+STATE_0_MARGE = 0.1
 
 
 
@@ -145,6 +256,8 @@ Backup Count               : {BACKUP_COUNT}
 
 Path to Dataset            : {PATH_TO_DATASET}
 Time Series Name           : {TS_NAME}
+Time Series Name(X1)       : {TS_GENERATION_NAME}
+Time Series Name(X2)       : {TS_DEMAND_NAME}
 Timestamp Label            : {TS_TIMESTAMP_LABEL}
 
 Time Series hyper-parameters

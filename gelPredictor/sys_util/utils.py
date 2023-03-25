@@ -7,6 +7,8 @@ from time import perf_counter
 
 import matplotlib.pyplot as plt
 import numpy as np
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
 import logging
 
 import tensorflow as tf
@@ -148,6 +150,27 @@ State Mean  Std
 """
     logger.info(message)
     return emisDist
+""" The states are set( states list), the state sequence along train path is given (state_sequence list).
+Let's consider  a new extended segment (block) reoresenting the average powewr per day and the time series of daily 
+power observations. In our case, its dimension will be m=145=1 +144.
+   Knowing that daily observations belong to one of the states, it is possible to estimate the mean vector  and 
+covariance matrix of m-dimensional observations.
+"""
+def emisMLE_ext(yy: np.array = None, n_block:int=48, state_sequence: list = [], states: list = []) -> np.array:
+    pass
+u
+=
+L
+L
+L
+=
+s
+    """ mean values per day """
+    ext_seg = []
+
+    for n_seg  in range(len(state_sequence)):
+        ext_seg.append([ yy[i] for i in range(n_seg*n_block, (n_seg+1)*n_block )])
+        ext_seg.insert(0, np.sum( yy[n_seg*n_block: (n_seg+1)*n_block] )/float(n_block) )
 
 
 """ This function estimates the pai (initial) distribution.
@@ -200,7 +223,13 @@ def transitionsMLE(state_sequence: list = [], states: list = []) -> np.array:
         for statej in states:
             nominator =0
             for k in range(len(state_sequence)-1):
-                if state_sequence[k] == statei and state_sequence[k+1] == statej:
+     u
+=
+L
+L
+L
+=
+s           if state_sequence[k] == statei and state_sequence[k+1] == statej:
                     nominator += 1
             transDist[statei][statej] = round(float(nominator)/float(denominator), 6)
             msg = msg + "{} ".format(transDist[statei][statej])
@@ -278,6 +307,7 @@ def drive_HMM(folder_predict_log:Path = None, ts_name: str = "TS", pai: np.array
     :return:
     """
 
+
     tfd = tpb.distributions
 
     imprLogDist(arDist=pai,         title = "Initial Distribution")
@@ -306,6 +336,10 @@ def drive_HMM(folder_predict_log:Path = None, ts_name: str = "TS", pai: np.array
         transition_distribution=transition_distribution,
         observation_distribution=observation_distribution,
         num_steps=len(observations))
+    mean = model.mean()
+    plotHMMproperties(mean_arr= mean.numpy(), folder_predict_log=folder_predict_log, ts_name=ts_name, emisDist=emisDist,
+                      observations=observations, observation_labels = observation_labels, states_set=states_set)
+
 
     observations_tenzor = tf.convert_to_tensor(observations.tolist(), dtype=tf.float64)
 
@@ -327,6 +361,54 @@ def drive_HMM(folder_predict_log:Path = None, ts_name: str = "TS", pai: np.array
     plotViterbiPath(str(len(observations)), observation_labels, post_mode.numpy(), states_set, folder_predict_log, ts_name)
 
     return post_mode.numpy(), post_marg.name, post_marg.logits
+
+
+def plotHMMproperties(mean_arr:np.array = None, folder_predict_log:Path = None, ts_name: str = "TS",
+              emisDist: np.array =None,  observations: np.array = None, observation_labels: np.array = None,
+              states_set: np.array = None):
+    pass
+    if mean_arr is None or emisDist is None or observations is None or observation_labels is None:
+        logging.error("Missed data for PlotHMMproperties()")
+        return
+    msg="\n\n##day     Timestamp              State Model Value Real Value\n"
+    (n,) =observations.shape
+    for i in range(n):
+        msg=msg + "{:>5d} {:<30s} {:>2d} {:<10.4f} {:<10.4f}\n".format(i, observation_labels[i],
+                    states_set[i], mean_arr[i], observations[i])
+    msg=msg+"\n\n"
+    logger.info(msg)
+
+    file_name="HMM_properties"
+    file_png = None
+    if folder_predict_log is None:
+        file_png = Path(file_name).with_suffix(".png")
+    else:
+        file_png = Path(folder_predict_log / Path(file_name)).with_suffix(".png")
+    try:
+        plt.plot(mean_arr,label = "HMM mean")
+        plt.plot(observations,label ="Day Value" )
+        numfig = plt.gcf().number
+        fig = plt.figure(num=numfig)
+        fig.set_size_inches(18.5, 10.5)
+        fig.suptitle("Hidden Markov Model Estimated Observations\n{}".format(ts_name), fontsize=24)
+        plt.ylabel("Observations", fontsize=18)
+        plt.xlabel("Day Number", fontsize=18)
+        plt.legend()
+        plt.savefig(file_png)
+
+    except:
+        logger.error("\nCan not plot plotHMMproperties()\n")
+    finally:
+        plt.close("all")
+
+    try:
+        plotArray(arr=states_set, title=ts_name, folder_control_log=folder_predict_log, file_name="state_sequence")
+    except:
+        logger.error("\nCan not plot stste sequences plotHMMproperties()\n")
+    finally:
+        plt.close("all")
+    return
+
 
 def plotViterbiPath(pref, observations, viterbi_path, hidden_sequence, folder_predict_log, ts_name):
     """
@@ -370,6 +452,7 @@ def plotViterbiPath(pref, observations, viterbi_path, hidden_sequence, folder_pr
         pass
     finally:
         plt.close("all")
+
     return
 
 
@@ -446,6 +529,20 @@ def auxLogDist(arDist: np.array, n_row:int, n_col:int,  row_header:list, col_hea
             s = s + "  " + s1
 
         logger.info(s)
+    return
+
+def plotClusters(kmeans: KMeans, X: np.array, file_png:Path):
+    """
+    The plot shows 2 first component of X
+    :param kmeans: -sclearn.cluster.Kmeans object
+    :param X: matrix n_samples * n_features or principal component n_samples * n_components.
+    :param file_png:
+    :return:
+    """
+    plt.scatter(X[:, 0].tolist(), X[:, 1].tolist(), c=kmeans.labels_.astype(float), s=50, alpha=0.5)
+    plt.scatter(kmeans.cluster_centers_[:, 0], kmeans.cluster_centers_[:, 1], c='red', s=50)
+    plt.savefig(file_png)
+    plt.close("all")
     return
 
 if __name__ == "__main__":

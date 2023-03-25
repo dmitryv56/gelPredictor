@@ -69,7 +69,7 @@ def main(argc,argv)->int:
     # ds.scalogramEstimation()
     #
     # # prepare raw data for Convolution Neural Net
-    # X, Y = ds.Data4CNN()
+    X, Y = ds.Data4CNN()
     # # n1=ds.n_train_blocks + ds.n_val_blocks
     # # m1=ds.n_steps
     # # X=ds.y[:n1*m1].reshape((n1,m1))

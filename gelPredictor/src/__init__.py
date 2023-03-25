@@ -7,4 +7,6 @@
   dau.py
   featext.py
   hmm.py
+  DatasetDemand.py
+  DatasetPredictor.py
   """

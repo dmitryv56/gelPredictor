@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 from scipy import signal
 import matplotlib.pyplot as plt
+import re
 
 DS2020 = "~/LaLaguna/gelPredictor/dataset_Repository/energy-charts_Electricity_generation_in_Germany_in_2020_Excel.csv"
 DS2021 = "~/LaLaguna/gelPredictor/dataset_Repository/energy-charts_Electricity_generation_in_Germany_in_2021_Excel.csv"
@@ -11,10 +12,14 @@ DS2022 = "~/LaLaguna/gelPredictor/dataset_Repository/energy-charts_Electricity_g
 DS202020212022 = "~/LaLaguna/gelPredictor/dataset_Repository/Electricity_generation_in_Germany_2020_2022.csv"
 DSsolar = "~/LaLaguna/gelPredictor/dataset_Repository/Solar_2021.csv"
 DSsolar2021 ="~/LaLaguna/gelPredictor/dataset_Repository/PowerSolar_2021.csv"
+DSsolar2021_16 ="~/LaLaguna/gelPredictor/dataset_Repository/PowerSolar_2021_16.csv"
 DSsolar2021_5_20 ="~/LaLaguna/gelPredictor/dataset_Repository/PowerSolar_2021_5_20.csv"
+DSsolarPlant21012020="~/LaLaguna/gelPredictor/dataset_Repository/SolarPlantPowerGen_21012020.csv"
+DSsolarPlant21012020_Light="~/LaLaguna/gelPredictor/dataset_Repository/SolarPlantPowerGen_21012020_Light.csv"
 dt_name = "Date Time"
 ts_name = "Wind_offshore_50Hertz"
 ts_solar_name ="Power_Solar"
+ts_power_name="PowerGen"
 ts_solar_name_per_day ="Average_Power_Solar_per_day"
 DSsolar2021_per_day ="~/LaLaguna/gelPredictor/dataset_Repository/PowerSolar_2021_per_day.csv"
 
@@ -70,6 +75,28 @@ def crtSolarDS():
         dt1.append(d)
     df =pd.DataFrame({dt_name:dt1[:], ts_solar_name:dv0[:]})
     df.to_csv(DSsolar2021)
+    pass
+
+def crtSolarDS_16():
+    df = pd.read_csv(DSsolarPlant21012020)
+    dt0=df[dt_name].values
+    dv0 = df[ts_power_name].values
+    dt1=[]
+    dv1=[]
+    n=len(dt0)
+    l_light_hours=['08','09','10','11','12','13','14','15','16','17','18','19']
+    for i in range(n):
+        m=re.search('T(.+?):(.+?):', dt0[i])
+
+        if m.group(1) in l_light_hours:
+            dt1.append(dt0[i])
+            dv1.append(dv0[i])
+
+    print(len(df))
+    df =pd.DataFrame({dt_name:dt1[:], ts_solar_name:dv1[:]})
+    df.to_csv(DSsolarPlant21012020_Light)
+
+    print(len(df))
     pass
 
 def crtSolarDSreduce():
@@ -147,6 +174,7 @@ if __name__ == "__main__":
     # crtDS()
     # readData()
     # crtSolarDSreduce()
-    SolarAggrSpect()
+    # SolarAggrSpect()
+    crtSolarDS_16()
 
     pass
