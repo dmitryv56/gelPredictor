@@ -14,6 +14,8 @@ The control path is the logic to manage the flow of data through design blocks. 
 
 import logging
 from pathlib import Path
+
+import matplotlib.pyplot as plt
 import numpy as np
 
 from src.dau import Dataset, DatasetImbalance
@@ -37,8 +39,6 @@ _, log_folder, chart_log = setOutput(model_repository=PATH_REPOSITORY,
 @exec_time
 def cntrPath()->(Dataset, np.array, np.array):
     """ Control paths"""
-
-
 
     """ Data Source acquisition """
     ds = Dataset(pathTo=PATH_TO_DATASET, ts=TS_NAME, dt=TS_TIMESTAMP_LABEL, sampling=SAMPLING,
@@ -183,30 +183,55 @@ def shrtTrainPath(ds: Dataset = None)->VeryShortTerm:
 
 @exec_time
 def hmmTrainPath(ds: Dataset = None):
-    """ HMM """
-    observation_labels =[]
-    observations = []
+    """ HMM Observation for segment is mean value per segment.
+    HMM operates with segment(blocks), i.e. state per block. The observation are aggregated by mean of observations
+    per segment(block). The each segment signed by label that is a timestamp for 1 sampling item in segment.
+    The matrix mean4state is auxiliary matrix contain mean vector of obserbations  are belongs  to state.
+    Those mean vectors shall use for compare predict and dedicated test data.
+    For example, the predicted state for next segment  is state=S. The S-th mean vector items is compared with test
+    segment values.
+    """
+    observation_labels = []
+    observations = []     # aggregated observations
+
+    mean4state = np.zeros(shape=(ds.num_classes, ds.segment_size), dtype=float)  # auxiliary.
+    cntr_states = np.zeros(shape=ds.num_classes, dtype=int)
+
     for item in ds.lstBlocks:
-        observation_labels.append(item.timestamp)
-        segment_index = item.index
-        # val =0.0
-        # for i in range(segment_index, segment_index + ds.segment_size):
-        #     val = val + ds.df[ds.ts_name].values[i]
-        # observations.append(val/ds.segment_size)
-        observations.append(item.average)
+        observation_labels.append(item.timestamp)  # add first timestamp for segment
+        segment_index = item.index                 # offset segment of the beginning of the time series
+        val = 0.0
+        cntr_states[item.desire] = cntr_states[item.desire] + 1  # counter of the states
+        j = 0
+        for i in range(segment_index, segment_index + ds.segment_size):
+            # accumulate values along segment
+            val = val + ds.df[ds.ts_name].values[i]
+            # accumulate sampling values along states
+            mean4state[item.desire, j] = mean4state[item.desire, j] + ds.df[ds.ts_name].values[i]
+            j = j + 1
 
-    viterbi_path, post_marg_name_, post_marg_logits_ = drive_HMM(folder_predict_log = ds.chart_log, ts_name = ds.ts_name,
-                                                               pai = ds.hmm.pi, transitDist = ds.hmm.A,
-                                                               emisDist=ds.hmm.B, observations=np.array(observations),
-                                                               observation_labels=np.array(observation_labels),
-                                                               states_set = ds.hmm.state_sequence)
+        observations.append(val/ds.segment_size)
 
-    pred_states, pred_states_probability = hmmPredpath(ds = ds, viterbi_path = viterbi_path, num_predictions = 4 )
+    (cl, m) = mean4state.shape
+    for i in range(cl):
+        for k in range(m):
+            mean4state[i, k] = mean4state[i, k]/float(cntr_states[i])
+
+    viterbi_path, post_marg_name_, post_marg_logits_ = drive_HMM(folder_predict_log=ds.chart_log, ts_name=ds.ts_name,
+                                                                 pai=ds.hmm.pi, transitDist=ds.hmm.A,
+                                                                 emisDist=ds.hmm.B, observations=np.array(observations),
+                                                                 observation_labels=np.array(observation_labels),
+                                                                 states_set=ds.hmm.state_sequence)
+
+    pred_states, pred_states_probability = hmmPredpath(ds=ds, viterbi_path=viterbi_path, num_predictions=4)
+
+    shorttermForecastChart(ds=ds, predicted_states=pred_states)  # TODO
 
     return
 
-def hmmPredpath(ds: Dataset = None, viterbi_path:np.array = None, num_predictions:int =2)->(list, list):
-    """ H(idden) M(arkov) M(odel) """
+
+def hmmPredpath(ds:Dataset=None, viterbi_path:np.array=None, num_predictions:int=2)->(list,list):
+    """ H(idden) M(arkov) M(odel)  """
 
     pred_states = []
     pred_states_probability = []
@@ -218,6 +243,46 @@ def hmmPredpath(ds: Dataset = None, viterbi_path:np.array = None, num_prediction
         prob_pred_state = prob_pred_state * prob_new_pred_state
         pred_states_probability.append(prob_pred_state)
     return pred_states, pred_states_probability
+
+def shorttermForecastChart(ds:Dataset = None, predicted_states:list = None ):   # TODO
+    pass
+
+
+    predict_ll =[ ds.blck_class_centers[i].x for i in predicted_states]  # list of lists [[..],..,[..]]
+    predict = [item for sublist in predict_ll for item in sublist ]  # flatten list [..]
+    test_start= (ds.n_train_blocks + ds.n_val_blocks) * ds.segment_size
+    tail_ts = ds.df[ds.ts_name].values[test_start:]
+
+    predict_timestamp = ds.df[ds.dt_name].values[test_start:]
+
+    predict_size = len(predict) if len(predict) <len( tail_ts) else len( tail_ts)
+    msg = "     (Short Term) Predicted and tested values of {}\n{:<3s}  {:<5s} {:<28s} {:<10s} {:<10s}\n".format( \
+        ds.ts_name, "##", "State","Timestamp", "Predict",  "Test value")
+    k=0
+    for i in range(predict_size):
+
+        msg = msg + "{:<3d}  {:<2d}    {:<28s} {:<10.4f} {:<10.4f}\n".format( \
+            i, predicted_states[k], predict_timestamp[i], predict[i],  tail_ts[i])
+
+        if (i>0) and ((i % ds.segment_size) == 0):
+            k = k + 1
+
+    logger.info(msg)
+    fl_log =Path(TEST_FOLDER / Path("ShortTermForecasting_TestData")).with_suffix(".log")
+    fl_chart = Path(TEST_FOLDER  / Path("ShortTermForecasting_TestData")).with_suffix(".png")
+    with open(fl_log, 'w') as fout:
+        fout.write(msg)
+    x_axis =[i for i in range(predict_size)]
+    plt.figure()
+    # plt.plot(x_axis, predict_size,'b', alfa=0.75)
+    plt.plot(x_axis,predict[:predict_size],'r',x_axis,tail_ts[:predict_size],'k')
+    plt.legend(('Short term Predict','Test Values'), loc='best')
+    plt.grid(True)
+    plt.savefig( fl_chart)
+    plt.close("all")
+    return
+
+
 
 if __name__ == "__main__":
     pass

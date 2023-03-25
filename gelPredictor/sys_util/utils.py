@@ -223,13 +223,7 @@ def transitionsMLE(state_sequence: list = [], states: list = []) -> np.array:
         for statej in states:
             nominator =0
             for k in range(len(state_sequence)-1):
-     u
-=
-L
-L
-L
-=
-s           if state_sequence[k] == statei and state_sequence[k+1] == statej:
+                if state_sequence[k] == statei and state_sequence[k+1] == statej:
                     nominator += 1
             transDist[statei][statej] = round(float(nominator)/float(denominator), 6)
             msg = msg + "{} ".format(transDist[statei][statej])
@@ -306,7 +300,6 @@ def drive_HMM(folder_predict_log:Path = None, ts_name: str = "TS", pai: np.array
     :param states_set:
     :return:
     """
-
 
     tfd = tpb.distributions
 
@@ -452,7 +445,6 @@ def plotViterbiPath(pref, observations, viterbi_path, hidden_sequence, folder_pr
         pass
     finally:
         plt.close("all")
-
     return
 
 
@@ -544,6 +536,18 @@ def plotClusters(kmeans: KMeans, X: np.array, file_png:Path):
     plt.savefig(file_png)
     plt.close("all")
     return
+def matrix2string(X:np.array=None)->str:
+    """ Form string"""
+    msg_X = ""
+    if X is not None:
+        msg_X = ""
+        (n, m) = X.shape
+        for i in range(n):
+            msg_line = "{:<4d}".format(i)
+            for j in range(m):
+                msg_line = msg_line + "{:<10.4f} ".format(X[i, j])
+            msg_X = msg_X + msg_line + "\n"
+    return msg_X
 
 if __name__ == "__main__":
 

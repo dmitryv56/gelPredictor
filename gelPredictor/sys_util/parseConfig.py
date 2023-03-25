@@ -66,6 +66,10 @@ PATH_SHRT_DATASETS         = Path(PATH_LOG_FOLDER / "short_term_Repository")
 PATH_SHRT_MODELS           = Path(PATH_LOG_FOLDER / "short_term_model_Repository")
 PATH_SHRT_CHARTS           = Path(PATH_LOG_FOLDER / SHRT_CHART_LOG)
 PATH_HMM_CHARTS            = Path(PATH_LOG_FOLDER / HMM_CHART_LOG)
+TRAIN_FOLDER               = Path(LOG_FOLDER_NAME / Path("TrainPath"))
+AUX_TRAIN_FOLDER           = Path(LOG_FOLDER_NAME / Path("AuxTrain"))
+TEST_FOLDER                = Path(LOG_FOLDER_NAME / Path("TestPath"))
+
 
 PATH_LOG_FOLDER.mkdir(            parents = True, exist_ok = True)
 PATH_REPOSITORY.mkdir(            parents = True, exist_ok = True)
@@ -76,6 +80,9 @@ PATH_SHRT_DATASETS.mkdir(         parents = True, exist_ok = True)
 PATH_SHRT_MODELS.mkdir(           parents = True, exist_ok = True)
 PATH_SHRT_CHARTS.mkdir(           parents = True, exist_ok = True)
 PATH_HMM_CHARTS.mkdir(            parents = True, exist_ok = True)
+TRAIN_FOLDER.mkdir(               parents = True, exist_ok = True)
+AUX_TRAIN_FOLDER.mkdir(           parents = True, exist_ok = True)
+TEST_FOLDER.mkdir(               parents = True, exist_ok = True)
 
 MAX_LOG_SIZE_BYTES=5 * 1024 * 1024
 BACKUP_COUNT=2
@@ -185,12 +192,9 @@ else:
     # CNN Hyperparams
     NUM_CLASSES = 10
 
-
-
 TS_TIMESTAMP_LABEL = "Date Time"
 
 # CNN Hyperparams
-
 BATCH_SIZE   = 64
 EPOCHS       = 20 #10
 # NUM_CLASSES  = 11
@@ -198,14 +202,32 @@ ALFA_RELU    = 0.1
 DROPOUT      = 0.25
 DENSE_INPUT  = 128
 NUM_KERNELS  = 32
-TRAIN_RATIO  = 0.7
-VAL_RATIO    = 0.28
-COMPRESS     = 'pca'   # or 'no'
+TRAIN_RATIO  = 0.750
+VAL_RATIO    = 0.245
+COMPRESS     = 'no'  # 'pca'   or 'no'
 N_COMPONENTS = 2
 
 # TS
 # German Electricity
 #TS_NAME = "Wind_offshore_50Hertz"
+
+# Power Solar
+TS_NAME            = "Power_Solar"
+TS_TIMESTAMP_LABEL = "Date Time"
+
+# TS hypeparameters
+SAMPLING           = 60 * 60  #  German Electricity15 * 60
+SEGMENT_SIZE       = 16 # 96  # size of segments over ts. The segment are being transformed to scalograms.
+OVERLAP            = 0        # sigments overlap. If 0 then the sigments are adjacent and number of segments over TS
+                              # is [n/n_step].
+                              # If 0 < overlap < n_step then  number of segment is the following sum
+                              #  while (n-k*overlap<=n_step):
+                              #         nn=nn+[n-k*overlap)/n_step] , where k=0,1,..
+N_STEPS             = 16      # size of sliding block over ts. They form learning-data inputs for multilayer and LSTM
+                              # neural nets.
+NUM_SCALES          = 12      # scale for wavelet
+DATA_NORMALIZATION  = 'stat'  # 'norm' -normalazation 0.0-1.0; 'stat'-statistical nomalization; 'other' -no normalization
+CONTINUOUS_WAVELET  = 'mexh'  # see in imported 'pywt'-package
 
 
 # Short-Term forecasting ANN
@@ -219,7 +241,7 @@ SHRT_DROPOUT             = 0.25
 SHRT_FEATURES            = 1
 SHRT_UNITS               = 64
 SHRT_MIN_TRAIN_DATA_SIZE = 2 * N_STEPS
-SHRT_TRAIN_PART          = 0.7
+SHRT_TRAIN_PART          = 0.8
 SHRT_VAL_PART            = 1.0 - SHRT_TRAIN_PART
 
 # Imbalance state rules
@@ -236,7 +258,7 @@ def printInfo()->str:
          Artifical Neural Net (ANN) Medium Term And Very Short-Term Forescting
                   {FORECASTING_OBJECT_TITLE }
                   
-    MEDIUM TERM FORECASTING GORIZONT   
+    SHORT TERM FORECASTING GORIZON   
 Log Folder Name            : {LOG_FOLDER_NAME}
 Main System Log            : {MAIN_SYSTEM_LOG}
 Server Log                 : {SERVER_LOG}
@@ -246,7 +268,9 @@ Path Log Folder            : {PATH_LOG_FOLDER}
 Path Main Log              : {PATH_MAIN_LOG}
 Path Server Log            : {PATH_SERVER_LOG}
 Path Chart Log             : {PATH_CHART_LOG}
-Path Med Term ANN Models 
+Path Short Term Predict Log: {TEST_FOLDER}
+
+Path Short Term ANN Models 
 Repository                 : {PATH_REPOSITORY}
 Path Dataset Repository    : {PATH_DATASET_REPOSITORY}
 Path Descriptor Repository : {PATH_DESCRIPTOR_REPOSITORY}
@@ -273,7 +297,7 @@ Num Classes                : {NUM_CLASSES}
 Transformation Data        : {COMPRESS}
 Num PCA Components         : {N_COMPONENTS}
 
-        Medium Term Prediction Convolution ANN Hyper-parameters Set 
+        Short Term Prediction Convolution ANN Hyper-parameters Set 
 Batch Size                 : {BATCH_SIZE}
 Epochs                     : {EPOCHS}
 Number Output classes      : {NUM_CLASSES}
@@ -284,7 +308,7 @@ Number Kernels             : {NUM_KERNELS}
 Ratio (Tran:Valid:Test)    : {TRAIN_RATIO} : {VAL_RATIO} : {round(1.- TRAIN_RATIO - VAL_RATIO, 3)}
 
 
-     Very Short-Term Forecasting Gorizont
+     VERY SHORT-TERN FORECASTING GORIZON
 Path Very Short-Term Datasets   : {PATH_SHRT_DATASETS}
 Path Very Short-Term ANN Models
 Repository                 : {PATH_SHRT_MODELS}

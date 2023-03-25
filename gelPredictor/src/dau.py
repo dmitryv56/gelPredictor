@@ -13,8 +13,8 @@ import logging
 
 from src.block import Block
 from sys_util.parseConfig import PATH_LOG_FOLDER , PATH_REPOSITORY, PATH_CHART_LOG, TRAIN_RATIO, VAL_RATIO, \
-    TS_DEMAND_NAME
-from sys_util.utils import simpleScalingImgShow
+    TRAIN_FOLDER, AUX_TRAIN_FOLDER, PATH_SHRT_CHARTS, TS_DEMAND_NAME
+from sys_util.utils import simpleScalingImgShow, matrix2string
 from src.hmm import hmm
 from sys_util.parseConfig import STATE_0_MARGE, STATE_0, STATE_DEMAND, STATE_GENERATION
 
@@ -122,8 +122,8 @@ class Dataset(Dau):
         self.hmm = hmm()
         self.printed = False
 
+   
     def __str__(self):
-
         msg=f"""
         
         
@@ -147,9 +147,8 @@ Aux Log Folder       : {self.log_folder}
 Charts               : {self.chart_log}
 
 """
-        self.printed =True
-        if self.printed: msg =""
-
+        self.log.info(msg)
+        print(msg)
         return msg
 
     def readDataset(self):
@@ -425,6 +424,8 @@ The overlap                                  : {self.overlap}
         #     self.StatesExtraction()
         #     return
 
+        after_pca_centers = None
+        Xpca = None
         X=np.zeros(shape=(len(self.lstOffsetSegment),self.segment_size))
         (n,m) =X.shape
         for i in range(n):
@@ -455,9 +456,25 @@ The overlap                                  : {self.overlap}
             self.lstBlocks[i].desire = kmeans.labels_[i]
 
         # generation blocks for centers
+        if self.compress == "pca":
+            pca_centers = kmeans.cluster_centers_
+            after_pca_centers = self.getCentersAfterPCA(pca_centers =  pca_centers)
+            self.aux_log(X=X, Xpca=Xpca, after_pca_centers=after_pca_centers)
+
         for i in range(self.num_classes):
 
-               blck =Block(x=kmeans.cluster_centers_[i,:],
+            if self.compress == "pca":
+                bclk_class_center = Block(x=after_pca_centers[i, :],
+                             sampling=self.sampling,
+                             timestamp="N/A",
+                             index=i,
+                             isTrain=True,
+                             wav=self.wav,
+                             scales=self.scales,
+                             desire=i)
+
+            else:
+               bclk_class_center =Block(x=kmeans.cluster_centers_[i,:],
                      sampling=self.sampling,
                      timestamp="N/A",
                      index=i,
@@ -465,10 +482,94 @@ The overlap                                  : {self.overlap}
                      wav=self.wav,
                      scales=self.scales,
                      desire=i)
-               blck.scalogramEstimation()
-               title = "Scalogram  Center Class_{}".format(i)
-               file_png = str( Path( Path(self.chart_log)/Path(title)).with_suffix(".png"))
-               simpleScalingImgShow(scalogram = blck.scalogram, index=i, title = title, file_png=file_png)
+
+            bclk_class_center.scalogramEstimation()
+            title = "Scalogram  Center Class_{}".format(i)
+            file_png = str( Path( Path(self.chart_log)/Path(title)).with_suffix(".png"))
+            simpleScalingImgShow(scalogram = bclk_class_center.scalogram, index=i, title = title, file_png=file_png)
+            self.blck_class_centers.append(bclk_class_center)  # save in the list of objects for the class centers
+
+        self.chartClassCenters()
+        self.logClassCenters()
+        return
+
+    def chartClassCenters(self):
+
+        fl_chart=Path(PATH_SHRT_CHARTS/"States_examples").with_suffix(".png")
+        legend_color ={"state 0":'b',     "state 1":'g',     "state 2":'r',     "state 3":'k',    "state 4":'o',
+                       "state 5": 'b-',   "state 6": 'g-',   "state 7": 'r-',   "state 8": 'k-',  "state 9": 'o-',
+                       "state 10": 'b--', "state 11": 'g--', "state 12": 'r--', "state 13": 'k-', "state 14": 'o--'
+                       }
+        legend =tuple([name for name,clr  in list(legend_color.items())[:self.num_classes]])
+        x_axis = [i for i in range(self.segment_size)]
+        plt.figure()
+        i=0
+        for key in (list(legend_color.values())[:self.num_classes]):
+            plt.plot(x_axis, self.blck_class_centers[i].x, key)
+            i = i +1
+
+        plt.legend(legend, loc='best')
+        plt.grid(True)
+        plt.savefig(fl_chart)
+        plt.close("all")
+
+    def logClassCenters(self):
+        """ Log"""
+        msg = ""
+        for item in self.blck_class_centers:
+            msg_class = "{:<3d} ".format(item.desire)
+            (m,)=item.x.shape
+            for j in range(m):
+                if j>0 and (j%8 == 0):
+                    msg_class = msg_class + "\n     "
+                msg_class = msg_class + "{:<10.4f}".format(item.x[j])
+            msg = msg + "{}\n".format(msg_class)
+        fl_out =Path(TRAIN_FOLDER / Path("State_typical_vector")).with_suffix(".log")
+        with open(fl_out,'w') as fout:
+            fout.write(msg)
+        self.log.info("Typical values for states logged into {}".format(fl_out))
+        return
+
+    def getCentersAfterPCA(self, pca_centers:np.array = None)->np.array:
+
+        after_pca_centers=np.zeros(shape=(self.num_classes, self.segment_size), dtype=float)
+        number_in_cluster=np.zeros(shape=(self.num_classes), dtype=int)
+        for item in self.lstBlocks:
+            for i in range(self.segment_size):
+                number_in_cluster[item.desire]=number_in_cluster[item.desire] + 1
+                after_pca_centers[item.desire,i] = after_pca_centers[item.desire,i] + item.x[i]
+        (cl,n) = after_pca_centers.shape
+        for cluster in range(cl):
+            for i in range(n):
+                after_pca_centers[cluster,i] = after_pca_centers[cluster,i]/float(number_in_cluster[cluster])
+        return after_pca_centers
+
+    def aux_log(self, X: np.array =None, Xpca:np.array = None, after_pca_centers:np.array = None):
+        aux_log_file = Path(AUX_TRAIN_FOLDER / Path("aux_pca_transform")).with_suffix(".log")
+        self.log.info(" PCA transfor aux.data are logging in {}\n".format(str(aux_log_file)))
+
+        msg_pca_centers = matrix2string(after_pca_centers)
+        msg_X = matrix2string(X=X)
+        msg_Xpca = matrix2string(X=Xpca)
+
+
+
+        message=f"""
+        Center clusters after pca-transformation
+{msg_pca_centers} 
+
+       
+        Matrix Observations being was transformed
+{msg_X}
+
+
+        Matrix pca-transformed oservations
+{msg_Xpca}
+
+
+"""
+        with open(aux_log_file,'w') as fot:
+            fot.write(message)
         return
 
     def Data4CNN(self)->(np.ndarray,np.ndarray):

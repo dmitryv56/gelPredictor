@@ -6,6 +6,7 @@
 
 import copy
 import logging
+from pathlib import Path
 
 import tensorflow as tf
 from keras import layers
@@ -15,7 +16,6 @@ from keras.layers import Conv1D
 from keras.layers import Dense
 from keras.layers import MaxPooling1D
 from keras.models import Sequential
-
 
 from sys_util.utils import exec_time
 
@@ -64,14 +64,18 @@ class NNmodel(baseNNmodel):
 
     # def set_model_from_template(self,func, *args):
     #     self.model = func(*args)
-    def set_model_from_template(self, func):
+    def set_model_from_template(self, func, model_log: Path = None):
         self.model = func()
         self.model.compile(optimizer='adam', loss='mse', metrics=[metrics.MeanSquaredError()])
         self.model.summary()
-        self.model.summary(print_fn=lambda x: self.log.info(x + '\n'))
-        # if self.f is not None:
-        #     self.model.summary(print_fn=lambda x: self.f.write(x + '\n'))
-
+        msg = "{} -model has been set from template. ".format(self.model.name)
+        self.log.info(msg)
+        if model_log is None:
+            self.model.summary(print_fn=lambda x: self.log.info(x + '\n'))
+        else:
+            with open(model_log, 'w') as fout:
+                fout.write(msg + '\n')
+                self.model.summary(print_fn=lambda x: fout.write(x + '\n'))
         return
 
     @exec_time
@@ -177,13 +181,15 @@ class NNmodel(baseNNmodel):
         return
 
     @exec_time
-    def fit_model(self):
+    def fit_model(self, fit_log:Path = None):
         X, y, X_val, y_val, n_steps, n_features, n_epochs, logfolder, f = self.param_fit
         history = self.model.fit(X, y, epochs=n_epochs, verbose=0, validation_data=(X_val, y_val), )
         msg_history = "\n\nEpochs : {}\n".format(history.epoch)
         for key,value in history.history.items():
             msg_history = msg_history + "\n{} :\n    {}".format(key,value)
 
+        msg0 = "{}-model has been successfully fitted ".format(self.model.name)
+        self.log.info(msg0 + '\n')
         msg =f"""
 
 Model {self.model.name}
@@ -192,7 +198,15 @@ Training history
 {msg_history}
 
         """
-        self.log.info(msg)
+        if fit_log is None:
+           self.log.info(msg)
+        else:
+            with open(fit_log, 'w') as fout:
+
+                fout.write(msg0 + '\n')
+                fout.write(msg)
+                self.log.info("{}-model has been successfully logged in {}".format(self.model.name, str(fit_log)))
+
         return history
 
     def predict_one_step(self, vec_data):
