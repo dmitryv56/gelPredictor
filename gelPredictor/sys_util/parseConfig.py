@@ -9,7 +9,8 @@ from pathlib import Path
 PROGRAM_NAME_GELPREDICTOR   = 'gelPredictor.py'
 PROGRAM_NAME_STATEEXTRACTOR = 'stateExtract.py'
 PROGRAM_NAME_GELANALYZER    = 'gelAnalyzer.py'
-PROGRAM_NAME_GELDEMAND      = 'gelDemand.py'
+PROGRAM_NAME_GELDEMAND      = 'gelSVSPred.py'
+PROGRAM_NAME_GELCAISOLOAD   = 'gelCaISOLoad.py'
 
 if basename(sys.argv[0]) == PROGRAM_NAME_GELPREDICTOR:
 
@@ -26,6 +27,10 @@ elif basename(sys.argv[0]) == PROGRAM_NAME_GELDEMAND :
     # FORECASTING_OBJECT_TITLE = "Demand El-Hierro (2012-2014)"
     FORECASTING_OBJECT = "PowerSolar_detrend_3state"
     FORECASTING_OBJECT_TITLE = "Detrend Power Solar(2021) "
+elif basename(sys.argv[0]) == PROGRAM_NAME_GELCAISOLOAD :
+
+    FORECASTING_OBJECT = "CAISOLoad_5state"
+    FORECASTING_OBJECT_TITLE = "CAISO (2020-2023) "
 else:
     FORECASTING_OBJECT = "Forecating_object"
     FORECASTING_OBJECT_TITLE = "Forecating_object"
@@ -91,6 +96,8 @@ BACKUP_COUNT=2
 # PATH_TO_DATASET= Path(PATH_DATASET_REPOSITORY / "ElHiero_24092020_27102020.csv")
 # German Electricity
 # PATH_TO_DATASET= Path(PATH_DATASET_REPOSITORY / "Electricity_generation_in_Germany_2020_2022").with_suffix(".csv")
+
+TS_TIMESTAMP_LABEL = "Date Time"
 
 # Power Solar
 if basename(sys.argv[0]) == PROGRAM_NAME_GELPREDICTOR :
@@ -171,6 +178,23 @@ elif basename(sys.argv[0]) == PROGRAM_NAME_GELDEMAND :
     CONTINUOUS_WAVELET = 'mexh'  # see in imported 'pywt'-package
     # CNN Hyperparams
     NUM_CLASSES = 3
+elif basename(sys.argv[0]) == PROGRAM_NAME_GELCAISOLOAD :
+    PATH_TO_DATASET = Path(PATH_DATASET_REPOSITORY / "CAISO_Load_01012020_24042023").with_suffix(".csv")
+    TS_TIMESTAMP_LABEL = "Date Time"
+    TS_NAME = "Load"
+    TS_GENERATION_NAME = "Diesel"
+    TS_DEMAND_NAME = "Day_In_Week"
+    # TS hypeparameters
+    SAMPLING = 5 * 60  # 10 * 60  #
+    SEGMENT_SIZE = 288  # 144  #
+    OVERLAP = 0
+    N_STEPS = 288 # size of sliding block over ts. They form learning-data inputs for multilayer and LSTM
+    # neural nets.
+    NUM_SCALES = 72  # scale for wavelet
+    DATA_NORMALIZATION = 'other'  # 'norm' -normalazation 0.0-1.0; 'stat'-statistical nomalization; 'other' -no normalization
+    CONTINUOUS_WAVELET = 'mexh'  # see in imported 'pywt'-package
+    # CNN Hyperparams
+    NUM_CLASSES = 5
 else:
     PATH_TO_DATASET = Path(PATH_DATASET_REPOSITORY / "ElHierro_2012_2014").with_suffix(".csv")
     TS_NAME = "Imbalance"
@@ -192,8 +216,6 @@ else:
     # CNN Hyperparams
     NUM_CLASSES = 10
 
-TS_TIMESTAMP_LABEL = "Date Time"
-
 # CNN Hyperparams
 BATCH_SIZE   = 64
 EPOCHS       = 20 #10
@@ -212,22 +234,22 @@ N_COMPONENTS = 2
 #TS_NAME = "Wind_offshore_50Hertz"
 
 # Power Solar
-TS_NAME            = "Power_Solar"
-TS_TIMESTAMP_LABEL = "Date Time"
-
-# TS hypeparameters
-SAMPLING           = 60 * 60  #  German Electricity15 * 60
-SEGMENT_SIZE       = 16 # 96  # size of segments over ts. The segment are being transformed to scalograms.
-OVERLAP            = 0        # sigments overlap. If 0 then the sigments are adjacent and number of segments over TS
-                              # is [n/n_step].
-                              # If 0 < overlap < n_step then  number of segment is the following sum
-                              #  while (n-k*overlap<=n_step):
-                              #         nn=nn+[n-k*overlap)/n_step] , where k=0,1,..
-N_STEPS             = 16      # size of sliding block over ts. They form learning-data inputs for multilayer and LSTM
-                              # neural nets.
-NUM_SCALES          = 12      # scale for wavelet
-DATA_NORMALIZATION  = 'stat'  # 'norm' -normalazation 0.0-1.0; 'stat'-statistical nomalization; 'other' -no normalization
-CONTINUOUS_WAVELET  = 'mexh'  # see in imported 'pywt'-package
+# TS_NAME            = "Power_Solar"
+# TS_TIMESTAMP_LABEL = "Date Time"
+#
+# # TS hypeparameters
+# SAMPLING           = 60 * 60  #  German Electricity15 * 60
+# SEGMENT_SIZE       = 16 # 96  # size of segments over ts. The segment are being transformed to scalograms.
+# OVERLAP            = 0        # sigments overlap. If 0 then the sigments are adjacent and number of segments over TS
+#                               # is [n/n_step].
+#                               # If 0 < overlap < n_step then  number of segment is the following sum
+#                               #  while (n-k*overlap<=n_step):
+#                               #         nn=nn+[n-k*overlap)/n_step] , where k=0,1,..
+# N_STEPS             = 16      # size of sliding block over ts. They form learning-data inputs for multilayer and LSTM
+#                               # neural nets.
+# NUM_SCALES          = 12      # scale for wavelet
+# DATA_NORMALIZATION  = 'stat'  # 'norm' -normalazation 0.0-1.0; 'stat'-statistical nomalization; 'other' -no normalization
+# CONTINUOUS_WAVELET  = 'mexh'  # see in imported 'pywt'-package
 
 
 # Short-Term forecasting ANN

@@ -36,7 +36,7 @@ PWR_2_MIN = PWR_1_MIN +16.0
 PWR_3_MIN = PWR_2_MIN + 16.0
 PWR_3_MAX = PWR_3_MIN + 16.0
 
-class DatasetDemand(Dataset):
+class DatasetSVSPred(Dataset):
 
     def __init__(self, pathTo: str = "", ts: str = "", dt: str = "Date Time", sampling: int = 10 * 60,
                  n_steps: int = 144,
@@ -58,36 +58,14 @@ class DatasetDemand(Dataset):
         self.count = np.zeros((self.num_classes), dtype=int)
         self.aver_of_aver = np.zeros((self.num_classes), dtype=float)
         self.hmm = hmm_demand(dt=self.dt,log_folder=self.log_folder)
-
-
-        # self.pathToCsv = pathTo
-        # self.df: pd.DataFrame = None
-        # self.y = None
-        # self.dt = None
-        # self.n = 0
-        # self.mean = 0.0
-        # self.std = 1.0
-        # self.min = 0.0
-        # self.max = 1.0
-        # self.n_train = 0
-        # self.n_val = 0
-        # self.n_test = 0
-        # self.n_train_blocks = 0
-        # self.n_val_blocks = 0
-        # self.lstBlocks = []
-        # self.lstOffsetSegment = []
-        # self.hmm = hmm()
-
         return
 
-    """ THis method aims on the aggregation observations. Common algorithm description is below:
-       TBD
-       """
 
     """ This method aims on the aggregation a day's observations in the segments (blocks). Each block has desired label 
           according by belongs the day average power demand to one of ranges 5.0-5.55, 5.55-5.9,5.9-6.4 MWT 
           The average for each day is calculated and saved in the dict{offset day : aver}.
-          Because day is vector of 144 samples, then offsets are 0, 144,288, ...."""
+          Because day is vector of n_day samples, then offsets are 0, n_day,2*n_day, ....
+          For example, for discretization is 10 minutes ,  n_day = 144 samples."""
 
     def createSegmentLstPerDayPerPower(self):
 
@@ -124,6 +102,7 @@ Segment  Timestamp :    mean power consumption (MWT)
 {msg}
 
                       """
+
         self.log.info(message)
 
         minAverPwr = min(self.d_averPwr.values())
@@ -153,6 +132,9 @@ Class Left     Right
 
 """
         self.log.info(message)
+        file_log = Path(Path(self.log_folder)/Path("state_range")).with_suffix(".log")
+        with open(file_log, 'w') as fout:
+            fout.write(message)
         #################################################################################
 
 
@@ -165,7 +147,7 @@ Class Left     Right
         - flag, is not used now,
         - wavelet object for scalogram and other,
         - number of scales for wavelet,
-        - label, bbelonging to class (state),
+        - label, belonging to class (state),
         - average value for segment observations.
         """
         count_abnormal =0
@@ -194,6 +176,25 @@ Class Left     Right
             )
 
         return
+
+    def printAveragePerBlock(self):
+        y_list=[]
+        x_list=[]
+        state_list=[]
+        message="{:>5d} {:<30s} {:<10.4f} {:>3d}\n\n".format("#####", "Timestamp", "Day Average", "State")
+        ind=0
+        for item in self.lstBlocks:
+            msg_row="{:>5d} {:<30s} {:<10.4f} {:>3d}\n".format(ind,item.timestamp, item.average, item.desire)
+            y_list.append(item.average)
+            x_list.append(item.timestamp)
+            state_list.append(item.desire)
+            ind = ind +1
+            message=message + msg_row
+        file_log = Path(Path(self.log_folder)/Path("Day_Average_Values")).with_suffix(".log")
+        with open(file_log,'w') as fout:
+            fout.write(message)
+        return
+
 
     def avrObservationPerState(self):
 

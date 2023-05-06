@@ -21,16 +21,13 @@ import numpy as np
 from src.dau import Dataset, DatasetImbalance
 from src.cnn import  CNN
 from src.vshtrm import VeryShortTerm
-from sys_util.parseConfig import LOG_FOLDER_NAME, MAIN_SYSTEM_LOG, SERVER_LOG, CHART_LOG, \
-PATH_ROOT_FOLDER, PATH_LOG_FOLDER , PATH_MAIN_LOG , PATH_SERVER_LOG, PATH_CHART_LOG , \
-PATH_REPOSITORY , PATH_DATASET_REPOSITORY, PATH_DESCRIPTOR_REPOSITORY, \
-MAX_LOG_SIZE_BYTES, BACKUP_COUNT, PATH_TO_DATASET, DATA_NORMALIZATION, OVERLAP, N_STEPS, CONTINUOUS_WAVELET, \
-NUM_CLASSES, NUM_SCALES, SAMPLING, TS_NAME, TS_TIMESTAMP_LABEL, SEGMENT_SIZE, PATH_SHRT_DATASETS,printInfo, \
-TS_GENERATION_NAME, TS_DEMAND_NAME
+from sys_util.parseConfig import  PATH_LOG_FOLDER ,  PATH_CHART_LOG , PATH_REPOSITORY ,  PATH_TO_DATASET, \
+    DATA_NORMALIZATION, OVERLAP, N_STEPS, CONTINUOUS_WAVELET, NUM_CLASSES, SAMPLING, TS_NAME, TS_TIMESTAMP_LABEL, \
+    SEGMENT_SIZE, PATH_SHRT_DATASETS, TS_GENERATION_NAME, TS_DEMAND_NAME, NUM_SCALES
 from sys_util.utils import setOutput, exec_time, drive_HMM
 from src.drive import drive_all_classes
-from src.DatasetDemand import DatasetDemand
-from src.DatasetPredictor import DatasetPredictor
+from src.DatasetSVSPred import DatasetSVSPred
+
 
 logger = logging.getLogger(__name__)
 
@@ -94,13 +91,13 @@ def cntrPath_no_segm()->(Dataset, np.array, np.array):
     return ds, X,Y
 
 @exec_time
-def cntrPath_for_Demand()->(DatasetDemand, np.array, np.array):
+def cntrPath_for_SVSPred()->(DatasetSVSPred, np.array, np.array):
     """ Control paths.
 
     Data Source acquisition """
 
-    ds = DatasetDemand(pathTo=PATH_TO_DATASET, ts=TS_NAME, dt=TS_TIMESTAMP_LABEL, sampling=SAMPLING,
-                 segment_size=SEGMENT_SIZE, n_steps=N_STEPS, overlap=OVERLAP,
+    ds = DatasetSVSPred(pathTo=PATH_TO_DATASET, ts=TS_NAME, dt=TS_TIMESTAMP_LABEL, sampling=SAMPLING,
+                 segment_size=SEGMENT_SIZE, n_steps=N_STEPS, overlap=OVERLAP, num_scales=NUM_SCALES,
                  continuous_wavelet=CONTINUOUS_WAVELET, norm=DATA_NORMALIZATION, num_classes=NUM_CLASSES,
                  model_repository=PATH_REPOSITORY, log_folder=log_folder, chart_log=chart_log)
 
@@ -115,6 +112,7 @@ def cntrPath_for_Demand()->(DatasetDemand, np.array, np.array):
     """ Create segments (day or other aggregation) along TS. Block class implements for each segment and they are
     forming the list of blocks"""
     ds.createSegmentLstPerDayPerPower()
+    ds.printAveragePerBlock()
     """ The segments are belong to the same state are formed the clusters. The 'centers' of the cluster are calculated.
     These centers are defined the 'state'. """
     ds.avrObservationPerState()
@@ -125,31 +123,17 @@ def cntrPath_for_Demand()->(DatasetDemand, np.array, np.array):
     ds.createExtendedDataset()
     ds.hmm.fit(ds.df[ds.ts_name], ds.segment_size, ds.aver_of_aver)
 
-
     # prepare raw data for Convolution Neural Net
     X, Y = ds.Data4CNN()
 
     """ Train path for med term forecasting"""
-
     Cnn = medTrainPath(ds=ds, X=X, Y=Y)
-
 
     """ Train for hmm-model """
     hmmTrainPath(ds=ds)
 
     """ Train path for Very Short-Term forecasting """
-
     shrtTerm = shrtTrainPath(ds=ds)
-
-    #
-    # shrtTerm = VeryShortTerm(num_classes=ds.num_classes, segment_size=ds.segment_size, n_steps=N_STEPS, df=ds.df,
-    #                      dt_name=ds.dt_name, ts_name=ds.ts_name, exogen_list=[ds.dt_name, ds.ts_name],
-    #                      list_block=ds.lstBlocks, repository_path=PATH_SHRT_DATASETS)
-    # for i in range(ds.num_classes):
-    #     shrtTerm.createDS(i)
-    #
-    # drive_all_classes(shrt_data=shrtTerm)
-
     return ds, X,Y
 
 
