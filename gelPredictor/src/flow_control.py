@@ -136,6 +136,52 @@ def cntrPath_for_SVSPred()->(DatasetSVSPred, np.array, np.array):
     shrtTerm = shrtTrainPath(ds=ds)
     return ds, X,Y
 
+@exec_time
+def cntrPath_for_CaISOPred()->(DatasetSVSPred, np.array, np.array):
+    """ Control paths.
+
+    Data Source acquisition """
+
+    ds = DatasetSVSPred(pathTo=PATH_TO_DATASET, ts=TS_NAME, dt=TS_TIMESTAMP_LABEL, sampling=SAMPLING,
+                 segment_size=SEGMENT_SIZE, n_steps=N_STEPS, overlap=OVERLAP, num_scales=NUM_SCALES,
+                 continuous_wavelet=CONTINUOUS_WAVELET, norm=DATA_NORMALIZATION, num_classes=NUM_CLASSES,
+                 model_repository=PATH_REPOSITORY, log_folder=log_folder, chart_log=chart_log)
+
+    ds.readDataset()
+    (n,)=ds.y.shape
+    for i in range(n-1):
+        ds.y[i]=ds.y[i+1]-ds.y[i]
+    ds.y[n-1]=0.0
+
+    ds.setTrainValTest()
+    logger.info(ds.__str__)      #ds.__str__()
+    """ Create segments (day or other aggregation) along TS. Block class implements for each segment and they are
+    forming the list of blocks"""
+    ds.createSegmentLstPerDayPerPower()
+    ds.printAveragePerBlock()
+    """ The segments are belong to the same state are formed the clusters. The 'centers' of the cluster are calculated.
+    These centers are defined the 'state'. """
+    ds.avrObservationPerState()
+
+    ds.scalogramEstimationCenter()
+
+    ds.initHMM_logClasses()
+    ds.createExtendedDataset()
+    ds.hmm.fit(ds.df[ds.ts_name], ds.segment_size, ds.aver_of_aver)
+
+    # prepare raw data for Convolution Neural Net
+    X, Y = ds.Data4CNN()
+
+    """ Train path for med term forecasting"""
+    Cnn = medTrainPath(ds=ds, X=X, Y=Y)
+
+    """ Train for hmm-model """
+    hmmTrainPath(ds=ds)
+
+    """ Train path for Very Short-Term forecasting """
+    shrtTerm = shrtTrainPath(ds=ds)
+    return ds, X,Y
+
 
 @exec_time
 def medTrainPath(ds: Dataset = None, X: np.array = None, Y: np.array = None)->CNN:

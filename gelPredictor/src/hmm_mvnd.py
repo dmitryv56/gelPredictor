@@ -19,12 +19,16 @@ from hmmlearn.hmm import GaussianHMM
 import numpy as np
 import pandas as pd
 from sklearn.cluster import KMeans
+import matplotlib.pyplot as plt
+
+from src.pca import PCA_
 
 PATH_TO_CSV="~/LaLaguna/gelPredictor/dataset_Repository/CAISO_Load_01012020_24042023.csv"
 
 class HMMmvndemis():
     pass
-    def __init__(self,y:np.array=None, n_features:int=16, n_states:int=3, log_folder:Path = None ):
+    def __init__(self,y:np.array=None, dt:np.array = None, n_features:int=16, n_states:int=3, log_folder:Path = None ,
+                 title:str="CaISO"):
         if y is None:
             sys.exit(-1)
         self.n_features=n_features
@@ -35,6 +39,11 @@ class HMMmvndemis():
         self.n_samples=int(n/self.n_features)
         self.X=y[:self.n_samples * self.n_features].reshape(self.n_samples, self.n_features)
         self.log_folder=log_folder
+        self.title = title
+        if dt is None:
+            self.dt=np.array([str(i) for i in range( self.n_samples * self.n_features)])
+        else:
+            self.dt=dt
         self.y_mean = np.zeros(self.n_samples, dtype=float)
         self.y_std = np.zeros(self.n_samples, dtype=float)
         self.y_min = np.zeros(self.n_samples, dtype=float)
@@ -48,6 +57,7 @@ class HMMmvndemis():
         self.states, self.state_counts = np.unique(self.state_sequence, return_counts= True)
         self.pai = None
         self.transition = None
+        self.model = None
 
 
 
@@ -59,6 +69,30 @@ class HMMmvndemis():
             self.y_std[i] = self.X[i, :].std()
             self.y_min[i] = self.X[i, :].min()
             self.y_max[i] = self.X[i, :].max()
+        #     charts & logs
+        (n,m)=self.X.shape
+
+        file_stats = Path("{}_per_segment_statistics".format(self.title)).with_suffix(".txt")
+        with open(file_stats, 'w') as fout:
+            msg ="{:^5s} {:^30s} {:<12s} {:<12s} {:<12s} {:<12s}\n".format(" ##  ","Timestamp","Mean","Std",
+                                                                                       "Min","Max")
+            fout.write(msg)
+            for i in range(n):
+                msg = "{:>5d} {:<30s} {:<12.6e} {:<12.6e} {:<12.6e} {:<12.6e}\n".format(i,self.dt[i*m], \
+                        self.y_mean[i],self.y_std[i], self.y_min[i], self.y_max[i])
+                fout.write(msg)
+        # Plot the sampled data
+        plt.rcParams["figure.figsize"] = [7.50, 3.50]
+        plt.rcParams["figure.autolayout"] = True
+        x=np.array([i for i in range(n)])
+        plt.plot(x, self.y_mean, label ="average daily power ", alpha=0.7)
+        plt.plot(x, self.y_std,  label ="std daily power",  alpha=0.7)
+        plt.plot(x,  self.y_min, label = "min daily power", alpha=0.7)
+        plt.plot(x,  self.y_max, label = "max daily power", alpha=0.7)
+        plt.legend(loc='best')
+        plt.show()
+        plt.savefig("{}_Statistics_per_Day.png".format(self.title))
+        plt.close("all")
         return
 
     def obs_norm(self):
@@ -126,19 +160,78 @@ class HMMmvndemis():
         self.pai_fit()
         self.transition_fit()
 
-        model = GaussianHMM(n_components=self.n_states, covariance_type="tied")
-        model.n_features =self.n_features
+        self.model = GaussianHMM(n_components=self.n_states, covariance_type="tied")
+        self.model.n_features =self.n_features
         # model.transmat=self.transition
         # model.startprob=self.pai
 
-        model.means_=self.means
-        model.covars_ = self.covar
+        self.model.means_=self.means
+        self.model.covars_ = self.covar
 
-        model.fit(self.X)
-        vitterbi1= model.decode(self.X)
-        pass
+        self.model.fit(self.X)
+        vitterbi1= self.model.decode(self.X)
+        self.vitterbi = self.model.predict(self.X)
+        plt.rcParams["figure.figsize"] = [7.50, 3.50]
+        plt.rcParams["figure.autolayout"] = True
+        x = np.array([i for i in range(self.n_samples)])
+        plt.plot(x, self.vitterbi, label="Decoded sequence states", alpha=0.7)
+        plt.plot(x, self.state_sequence, label="Sequencr states", alpha=0.7)
+
+        plt.legend(loc='best')
+        plt.show()
+        plt.savefig("{}_{}_State_Decoded_States.png".format(self.title,self.n_states))
+        plt.close("all")
 
 
+    def chartTransitions(self,X:np.array):
+        """ """
+        (n_samples,n_components) = X.shape
+        # plot model states over time
+        fig, ax = plt.subplots()
+        ax.plot(self.state_sequence, self.vitterbi)
+        ax.set_title('States compared to generated')
+        ax.set_xlabel('Generated State')
+        ax.set_ylabel('Recovered State')
+        fig.show()
+        fig.savefig("{}_Generated_Recovered_{}_States.png".format(self.title,self.n_states))
+
+        # plot the transition matrix
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 5))
+        ax1.imshow(self.transition, aspect='auto', cmap='spring')
+        ax1.set_title('Generated Transition Matrix')
+        ax2.imshow(self.transition, aspect='auto', cmap='spring')
+        ax2.set_title('Recovered Transition Matrix')
+        for ax in (ax1, ax2):
+            ax.set_xlabel('State To')
+            ax.set_ylabel('State From')
+
+        fig.tight_layout()
+        fig.show()
+        fig.savefig("{}_Generated_Recovered_Transitions_{}_States.png".format(self.title,self.n_states))
+
+        # Plot the sampled data
+        fig, ax = plt.subplots()
+        ax.plot(X[:, 0], X[:, 1], ".-", label="observations", ms=6,
+                mfc="orange", alpha=0.7)
+
+        vtrb_states, vtrb_counts = np.unique(self.vitterbi,return_counts=True)
+        (n_states,)=vtrb_states.shape
+        mean = np.zeros((n_states, n_components), dtype=float)
+        for i in range(n_samples):
+            st=self.vitterbi[i]
+            for j in range(n_components):
+                mean[st][j]=mean[st][j] + X[i][j]
+        for i in range(n_states) :
+            for j in range(n_components):
+                mean[i][j]=mean[i][j]/vtrb_counts[i]
+        # Indicate the component numbers
+        for i, m in enumerate(mean):
+            ax.text(m[0], m[1], 'State %i' % (i + 1),
+                    size=17, horizontalalignment='center',
+                    bbox=dict(alpha=.7, facecolor='w'))
+        ax.legend(loc='best')
+        fig.show()
+        fig.savefig("{}_Observations_{}_States.png".format(self.title,self.n_states))
 
 
 
@@ -160,14 +253,22 @@ class DataCluster():
         self.cluster_centers = kmeans.cluster_centers_
         return kmeans.n_iter_, kmeans.n_features_in_, kmeans.inertia_, kmeans.labels_, kmeans.cluster_centers_
 
+
+
+
 if __name__ == "__main__":
     df = pd.read_csv(PATH_TO_CSV)
     y = df["Load"].values
-
-    model = HMMmvndemis(y=y, n_features=288, n_states=7, log_folder = None )
+    dt = df["Date Time"].values
+    model = HMMmvndemis(y=y, n_features=288, n_states=2, log_folder = None )
     model.fit()
     print(model.y_min, model.y_max, model.y_mean, model.y_std)
 
     print(model.state_sequence)
 
     print(model.means)
+
+    pca=PCA_(n_components=2,log_folder=None,title="2comp")
+    pca.fit(X=model.X)
+    pca.rpt2log()
+    model.chartTransitions(pca.X_pca)

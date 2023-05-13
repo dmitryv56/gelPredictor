@@ -48,6 +48,7 @@ for i, m in enumerate(means):
             bbox=dict(alpha=.7, facecolor='w'))
 ax.legend(loc='best')
 fig.show()
+fig.savefig("Observations_States.png")
 
 scores = list()
 models = list()
@@ -80,6 +81,7 @@ ax.set_title('States compared to generated')
 ax.set_xlabel('Generated State')
 ax.set_ylabel('Recovered State')
 fig.show()
+fig.savefig("Generated_Recovered_States.png")
 
 # plot the transition matrix
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 5))
@@ -93,6 +95,9 @@ for ax in (ax1, ax2):
 
 fig.tight_layout()
 fig.show()
+fig.savefig("Generated_Recovered_Transitions.png")
 
 if __name__=="__main__":
+
+
     pass
