@@ -13,7 +13,7 @@ import logging
 
 from src.block import Block
 from sys_util.parseConfig import PATH_LOG_FOLDER , PATH_REPOSITORY, PATH_CHART_LOG, TRAIN_RATIO, VAL_RATIO, \
-    TRAIN_FOLDER, AUX_TRAIN_FOLDER, PATH_SHRT_CHARTS, TS_DEMAND_NAME
+    TRAIN_FOLDER, AUX_TRAIN_FOLDER, PATH_SHRT_CHARTS, TS_DEMAND_NAME, PATH_WV_IMAGES
 from sys_util.utils import simpleScalingImgShow, matrix2string
 from src.hmm import hmm
 from sys_util.parseConfig import STATE_0_MARGE, STATE_0, STATE_DEMAND, STATE_GENERATION
@@ -32,7 +32,8 @@ class Dau(object):
     def __init__(self,ts: str = "",dt: str = "Date Time", sampling: int = 10*60, n_steps: int = 144,
                  segment_size: int = 96,norm: str = "stat", overlap: int = 0, continuous_wavelet: str = 'mexh',
                  num_classes: int = 4, num_scales: int = 16, compress: str = 'pca', n_components: int = 2,
-                 model_repository: Path = None,  log_folder: Path = None, chart_log: Path = None):
+                 model_repository: Path = None,  log_folder: Path = None, chart_log: Path = None,
+                 wavelet_image : Path = None):
         """ Constructor """
 
         self.log = logger
@@ -57,6 +58,7 @@ class Dau(object):
         self.model_repository = model_repository
         self.log_folder = log_folder
         self.chart_log = chart_log
+        self.wavelet_image = wavelet_image
 
 
 class Dataset(Dau):
@@ -91,8 +93,8 @@ class Dataset(Dau):
     def __init__(self, pathTo: str = "", ts: str = "", dt: str = "Date Time", sampling: int = 10*60, n_steps: int = 144,
                  segment_size: int = 96, norm: str = "stat", overlap: int = 0, continuous_wavelet: str = 'mexh',
                  num_classes: int = 4, num_scales: int = 16, compress: str = 'pca', n_components: int = 2,
-                 model_repository: Path = PATH_REPOSITORY, log_folder: Path = PATH_LOG_FOLDER,
-                 chart_log: Path = PATH_CHART_LOG):
+                 detrend: bool =False, model_repository: Path = PATH_REPOSITORY, log_folder: Path = PATH_LOG_FOLDER,
+                 chart_log: Path = PATH_CHART_LOG, wavelet_image = PATH_WV_IMAGES):
         """ Constructor """
 
 
@@ -100,7 +102,7 @@ class Dataset(Dau):
                          norm = norm, overlap = overlap, continuous_wavelet = continuous_wavelet,
                          num_classes = num_classes, num_scales = num_scales, compress = compress,
                          n_components = n_components, model_repository = model_repository, log_folder = log_folder,
-                         chart_log = chart_log)
+                         chart_log = chart_log, wavelet_image = wavelet_image)
         """ Constructor"""
 
         self.pathToCsv = pathTo
@@ -121,7 +123,9 @@ class Dataset(Dau):
         self.lstOffsetSegment = []
         self.hmm = hmm()
         self.printed = False
-
+        self.detrend = detrend
+        self.f_Naik  = 0.0
+        self.delta_f = 0.0
    
     def __str__(self):
         msg=f"""
@@ -130,13 +134,14 @@ class Dataset(Dau):
 Dataset              : {self.pathToCsv}
 TS name              : {self.ts_name}  Timestamp labels : {self.dt_name} Data Normalization : {self.norm}
 TS mean              : {self.mean}     TS std : {self.std} TS length : {self.n} Sampling : {self.sampling} sec 
+Detrend TS (High Pass Filter y[t]:=y[t]-y[t-1]): {self.deternd} 
 Segment Size         : {self.segment_size}  Train blocks : {self.n_train_blocks} Validation blocks : {self.n_val_blocks}
 Train Size           : {self.n_train}  Validation Size : {self.n_val}  Test Size: {self.n_test} 
 
 Wavelet              : {self.wav}
 Scales               : {self.scales}
 Frequencies,Hz       : {self.frequencies}
-Wavelet wigth        : {self.width} Max len :{self.max_wav_len }
+Wavelet width        : {self.width} Max len :{self.max_wav_len }
 
 Classification
 Data Compress Method : {self.compress}
@@ -148,7 +153,7 @@ Charts               : {self.chart_log}
 
 """
         self.log.info(msg)
-        print(msg)
+
         return msg
 
     def readDataset(self):
@@ -166,24 +171,28 @@ Charts               : {self.chart_log}
         ind_max = self.y.argmax()
         aver  = self.y.mean()
         std   = self.y.std()
-        f_Naik= 1.0/(2.0 *self.sampling)
-        delta_f =1.0/(self.n * self.sampling)
+        self.f_Naik= 1.0/(2.0 *self.sampling)
+        self.delta_f =1.0/(self.n * self.sampling)
 
-        message = f"""
-Min Value         : {min_y} MWT, index {ind_min}, date {self.dt[ind_min]}
-Max_Value         : {max_y} MWT, index {ind_max}, date {self.dt[ind_max]}
-Aver. Value       : {aver}  MWT
-S.T.D.            : {std}
-Sampling          : {self.sampling} sec, {self.sampling/60} minutes
-Nayquist freq     : {f_Naik} Hz
-Frequency sampling: {delta_f}Hz
+        message = f"""  
+        
+        Time Series {self.ts_name } 
+Aquisited (from/to) : {self.dt[0]}  - {self.dt[-1]}   
+Min Value           : {min_y} MWT, index {ind_min}, date {self.dt[ind_min]}
+Max_Value           : {max_y} MWT, index {ind_max}, date {self.dt[ind_max]}
+Aver. Value         : {aver}  MWT
+S.T.D.              : {std}
+Sampling            : {self.sampling} sec, {self.sampling/60} minutes
+Nayquist freq       : {self.f_Naik} Hz
+Frequency sampling  : {self.delta_f} Hz
 
 """
+        print(message)
         self.log.info(message)
-
+        return
 
     def data_normalization(self):
-
+        """  Two normalization types: statistical and [0.0 -1.0} """
         (self.n,)=np.shape(self.y)
         self.mean=np.mean(self.y,axis = 0)
         self.min = np.min(self.y,axis = 0)
@@ -700,14 +709,14 @@ class DatasetImbalance(Dau):
                  sampling: int = 10 * 60, n_steps: int = 144, segment_size: int = 96, norm: str = "stat",
                  overlap: int = 0, continuous_wavelet: str = 'mexh', num_classes: int = 4, num_scales: int = 16,
                  compress: str = 'pca', n_components: int = 2, model_repository: Path = PATH_REPOSITORY,
-                 log_folder: Path = PATH_LOG_FOLDER, chart_log: Path = PATH_CHART_LOG):
+                 log_folder: Path = PATH_LOG_FOLDER, chart_log: Path = PATH_CHART_LOG, wavelet_image = PATH_WV_IMAGES ):
         """ Constructor """
 
         super().__init__(ts=ts, dt=dt, sampling=sampling, n_steps=n_steps, segment_size=segment_size,
                          norm=norm, overlap=overlap, continuous_wavelet=continuous_wavelet,
                          num_classes=num_classes, num_scales=num_scales, compress=compress,
                          n_components=n_components, model_repository=model_repository, log_folder=log_folder,
-                         chart_log=chart_log)
+                         chart_log=chart_log, wavelet_image = wavelet_image)
         """ Constructor"""
 
         self.pathToCsv = pathTo
@@ -733,6 +742,7 @@ class DatasetImbalance(Dau):
         self.hmm = hmm()
         self.states = []
         self.ext_states = []
+
 
     def __str__(self):
         msg = f"""

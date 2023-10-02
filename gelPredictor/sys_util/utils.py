@@ -360,7 +360,7 @@ def plotHMMproperties(mean_arr:np.array = None, folder_predict_log:Path = None, 
     msg="\n\n##day     Timestamp              State Model Value Real Value\n"
     (n,) =observations.shape
     for i in range(n):
-        msg=msg + "{:>5d} {:<30s} {:>2d} {:<10.4f} {:<10.4f}\n".format(i, observation_labels[i],
+        msg=msg + "{:>5d} {:<30s} {:>2d} {:<10.4e} {:<10.4e}\n".format(i, observation_labels[i],
                     states_set[i], mean_arr[i], observations[i])
     msg=msg+"\n\n"
     logger.info(msg)

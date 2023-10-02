@@ -9,8 +9,10 @@ import keras
 from keras.models import Sequential,Model
 from keras.layers import Dense, Dropout, Flatten
 from keras.layers import Conv2D, MaxPooling2D
-from keras.layers.normalization import batch_normalization
-from keras.layers.activation import LeakyReLU
+# from keras.layers.normalization import batch_normalization
+from keras.layers import BatchNormalization
+# from keras.layers.activation import LeakyReLU
+from keras.layers import LeakyReLU
 from keras.datasets import fashion_mnist
 from keras.utils import to_categorical
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env ptrhon3
 
-""" While trainpath and predictpath are the paths on which model estimation and prediction computations occur, the
-control path is the path of initialization of objects that control code flow over train- and predictpath.
-The control path is the logic to manage the flow of data through design blocks. Control paths include such as followinf:
+""" While train path and predict path are the paths on which model estimation and prediction computations occur, the
+control path is the path of initialization of objects that control code flow over train- and predict path.
+The control path is the logic to manage the flow of data through design blocks. Control paths include such as following:
  - acquisition data source,
  - data normalization,
  - segment extraction from TS,
@@ -17,16 +17,19 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+from src.pca import PCA_
 
 from src.dau import Dataset, DatasetImbalance
 from src.cnn import  CNN
 from src.vshtrm import VeryShortTerm
 from sys_util.parseConfig import  PATH_LOG_FOLDER ,  PATH_CHART_LOG , PATH_REPOSITORY ,  PATH_TO_DATASET, \
-    DATA_NORMALIZATION, OVERLAP, N_STEPS, CONTINUOUS_WAVELET, NUM_CLASSES, SAMPLING, TS_NAME, TS_TIMESTAMP_LABEL, \
-    SEGMENT_SIZE, PATH_SHRT_DATASETS, TS_GENERATION_NAME, TS_DEMAND_NAME, NUM_SCALES
+    PATH_HMM_CHARTS, PATH_WV_IMAGES, DATA_NORMALIZATION, OVERLAP, N_STEPS, CONTINUOUS_WAVELET, NUM_CLASSES, SAMPLING, \
+    TS_NAME, TS_TIMESTAMP_LABEL, SEGMENT_SIZE, PATH_SHRT_DATASETS, TS_GENERATION_NAME, TS_DEMAND_NAME, NUM_SCALES, \
+    DETREND, TRAIN_FOLDER, TEST_FOLDER
 from sys_util.utils import setOutput, exec_time, drive_HMM
 from src.drive import drive_all_classes
-from src.DatasetSVSPred import DatasetSVSPred
+from src.DatasetSVSPred import DatasetSVSPred, DatasetSTF
+from src.hmm_mvnd import HMMmvndemis
 
 
 logger = logging.getLogger(__name__)
@@ -39,9 +42,9 @@ def cntrPath()->(Dataset, np.array, np.array):
 
     """ Data Source acquisition """
     ds = Dataset(pathTo=PATH_TO_DATASET, ts=TS_NAME, dt=TS_TIMESTAMP_LABEL, sampling=SAMPLING,
-                 segment_size=SEGMENT_SIZE, n_steps=N_STEPS, overlap=OVERLAP,
-                 continuous_wavelet=CONTINUOUS_WAVELET, norm=DATA_NORMALIZATION, num_classes=NUM_CLASSES,
-                 model_repository=PATH_REPOSITORY, log_folder=log_folder, chart_log=chart_log)
+                 segment_size=SEGMENT_SIZE, n_steps=N_STEPS, overlap=OVERLAP, continuous_wavelet=CONTINUOUS_WAVELET,
+                 norm=DATA_NORMALIZATION, num_classes=NUM_CLASSES, detrend = DETREND, model_repository=PATH_REPOSITORY,
+                 log_folder=log_folder, chart_log=chart_log, wavelet_image = PATH_WV_IMAGES)
 
     ds.readDataset()
     """ Normalization"""
@@ -72,7 +75,7 @@ def cntrPath_no_segm()->(Dataset, np.array, np.array):
                           dt=TS_TIMESTAMP_LABEL, sampling=SAMPLING, segment_size=SEGMENT_SIZE, n_steps=N_STEPS,
                           overlap=OVERLAP, continuous_wavelet=CONTINUOUS_WAVELET, norm=DATA_NORMALIZATION,
                           num_classes=NUM_CLASSES, model_repository=PATH_REPOSITORY, log_folder=log_folder,
-                          chart_log=chart_log)
+                          chart_log=chart_log, wavelet_image = PATH_WV_IMAGES)
 
     ds.readDataset()
 
@@ -97,15 +100,17 @@ def cntrPath_for_SVSPred()->(DatasetSVSPred, np.array, np.array):
     Data Source acquisition """
 
     ds = DatasetSVSPred(pathTo=PATH_TO_DATASET, ts=TS_NAME, dt=TS_TIMESTAMP_LABEL, sampling=SAMPLING,
-                 segment_size=SEGMENT_SIZE, n_steps=N_STEPS, overlap=OVERLAP, num_scales=NUM_SCALES,
-                 continuous_wavelet=CONTINUOUS_WAVELET, norm=DATA_NORMALIZATION, num_classes=NUM_CLASSES,
-                 model_repository=PATH_REPOSITORY, log_folder=log_folder, chart_log=chart_log)
+                        segment_size=SEGMENT_SIZE, n_steps=N_STEPS, overlap=OVERLAP, num_scales=NUM_SCALES,
+                        continuous_wavelet=CONTINUOUS_WAVELET, norm=DATA_NORMALIZATION, num_classes=NUM_CLASSES,
+                        detrend = DETREND, model_repository=PATH_REPOSITORY, log_folder=log_folder, chart_log=chart_log,
+                        wavelet_image = PATH_WV_IMAGES)
 
     ds.readDataset()
     (n,)=ds.y.shape
-    for i in range(n-1):
-        ds.y[i]=ds.y[i+1]-ds.y[i]
-    ds.y[n-1]=0.0
+    if DETREND :
+        for i in range(n-1):
+            ds.y[i]=ds.y[i+1]-ds.y[i]
+        ds.y[n-1]=0.0
 
     ds.setTrainValTest()
     logger.info(ds.__str__)      #ds.__str__()
@@ -136,48 +141,138 @@ def cntrPath_for_SVSPred()->(DatasetSVSPred, np.array, np.array):
     shrtTerm = shrtTrainPath(ds=ds)
     return ds, X,Y
 
+
+""" Control path for California ISO Prediction """
 @exec_time
 def cntrPath_for_CaISOPred()->(DatasetSVSPred, np.array, np.array):
-    """ Control paths.
 
-    Data Source acquisition """
+    """ Control paths.
+    - Data Source acquisition
+    - Normalization.
+    - Detrend using
+    - Segmentation: y(t) => Y(i,j) , where i- day (segment), j-0,,,,segment_size. The segment size is 144 for 10 min ,
+                                     or 96 for 15 min, or 48 for 30 min, or 24 for 1 hour discretizstion.
+    - classification for optimal  number states estimation.
+    - scalogram estimation (continues wavelet estimation) . Each segment data (day data) transforms to
+    num_scales * segment_size image.
+    - init HMM
+    Returns: dataset object
+             X- (n,scales,segment_size))
+             Y - (n)
+    """
 
     ds = DatasetSVSPred(pathTo=PATH_TO_DATASET, ts=TS_NAME, dt=TS_TIMESTAMP_LABEL, sampling=SAMPLING,
-                 segment_size=SEGMENT_SIZE, n_steps=N_STEPS, overlap=OVERLAP, num_scales=NUM_SCALES,
-                 continuous_wavelet=CONTINUOUS_WAVELET, norm=DATA_NORMALIZATION, num_classes=NUM_CLASSES,
-                 model_repository=PATH_REPOSITORY, log_folder=log_folder, chart_log=chart_log)
+                        segment_size=SEGMENT_SIZE, n_steps=N_STEPS, overlap=OVERLAP, num_scales=NUM_SCALES,
+                        continuous_wavelet=CONTINUOUS_WAVELET, norm=DATA_NORMALIZATION, num_classes=NUM_CLASSES,
+                        detrend =DETREND, model_repository=PATH_REPOSITORY, log_folder=log_folder, chart_log=chart_log,
+                        wavelet_image = PATH_WV_IMAGES)
 
     ds.readDataset()
     (n,)=ds.y.shape
-    for i in range(n-1):
-        ds.y[i]=ds.y[i+1]-ds.y[i]
-    ds.y[n-1]=0.0
+    if ds.detrend:
+        for i in range(n-1):
+            ds.y[i]=ds.y[i+1]-ds.y[i]
+        ds.y[n-1]=0.0
 
     ds.setTrainValTest()
-    logger.info(ds.__str__)      #ds.__str__()
-    """ Create segments (day or other aggregation) along TS. Block class implements for each segment and they are
-    forming the list of blocks"""
+
+    logger.info(ds.__str__)
+
+    """ Create segments (day or other aggregation) along TS. For each segment (block) the Block class is implemented  
+    and the objects for each segment form the list of blocks. 
+    """
+
     ds.createSegmentLstPerDayPerPower()
     ds.printAveragePerBlock()
+
     """ The segments are belong to the same state are formed the clusters. The 'centers' of the cluster are calculated.
     These centers are defined the 'state'. """
     ds.avrObservationPerState()
 
     ds.scalogramEstimationCenter()
 
-    ds.initHMM_logClasses()
-    ds.createExtendedDataset()
-    ds.hmm.fit(ds.df[ds.ts_name], ds.segment_size, ds.aver_of_aver)
+    # ds.initHMM_logClasses()
+    # ds.createExtendedDataset()
+    # ds.hmm.fit(ds.df[ds.ts_name], ds.segment_size, ds.aver_of_aver)
+
+
+
+    """ Train path for med term forecasting"""
+    model = HMMmvndemis(y=ds.y, dt=ds.dt, n_features=ds.segment_size, n_states=ds.num_classes,
+                        log_folder = log_folder ,  chart_folder = PATH_HMM_CHARTS, norm =DATA_NORMALIZATION,
+                        title ="CaISO")
+    model.fit()
+    print(model.y_min, model.y_max, model.y_mean, model.y_std)
+
+    print(model.state_sequence)
+
+    print(model.means)
+    """ For charting only: PCA transformation to 2-dimensional"""
+    pca = PCA_(n_components=2, log_folder=log_folder , chart_folder = PATH_CHART_LOG , title="2 principial component")
+    pca.fit(X=model.X)
+    pca.rpt2log()
+    model.chartTransitions(pca.X_pca)
 
     # prepare raw data for Convolution Neural Net
     X, Y = ds.Data4CNN()
+    """ Train path for Very Short-Term forecasting """
+    shrtTerm = shrtTrainPath(ds=ds)
+    return ds, X,Y
 
-    """ Train path for med term forecasting"""
-    Cnn = medTrainPath(ds=ds, X=X, Y=Y)
+""" Control path for California ISO Short-Term Prediction """
 
-    """ Train for hmm-model """
-    hmmTrainPath(ds=ds)
+@exec_time
+def cntrPath_for_STF()->(DatasetSTF, np.array, np.array):
 
+    """ Control paths.
+    - Data Source acquisition
+    - Normalization.
+    - Detrend using
+    - Segmentation: y(t) => Y(i,j) , where i- day (segment), j-0,,,,segment_size. The segment size is 144 for 10 min ,
+                                     or 96 for 15 min, or 48 for 30 min, or 24 for 1 hour discretizstion.
+    - classification for optimal  number states estimation.
+    - scalogram estimation (continues wavelet estimation) . Each segment data (day data) transforms to
+    num_scales * segment_size image.
+    - init HMM
+    Returns: dataset object
+             X- (n,scales,segment_size))
+             Y - (n)
+    """
+
+    ds = DatasetSTF(pathTo=PATH_TO_DATASET, ts=TS_NAME, dt=TS_TIMESTAMP_LABEL, sampling=SAMPLING,
+                        segment_size=SEGMENT_SIZE, n_steps=N_STEPS, overlap=OVERLAP, num_scales=NUM_SCALES,
+                        continuous_wavelet=CONTINUOUS_WAVELET, norm=DATA_NORMALIZATION, num_classes=NUM_CLASSES,
+                        detrend =DETREND, model_repository=PATH_REPOSITORY, log_folder=log_folder, chart_log=chart_log,
+                        wavelet_image = PATH_WV_IMAGES, train_folder = TRAIN_FOLDER, test_folder = TEST_FOLDER)
+
+    ds.readDataset()
+    (n,)=ds.y.shape
+    if ds.detrend:
+        for i in range(n-1):
+            ds.y[i]=ds.y[i+1]-ds.y[i]
+        ds.y[n-1]=0.0
+
+    # ds.setTrainValTest()
+
+    logger.info(ds.__str__)
+
+    ds.ts2Matrix()
+
+    kmeans,Xpca = ds.getStates()
+
+    ds.setSegmentList()
+    centers_after_pca = ds.cluster_centers_after_pca(kmeans=kmeans, Xpca=Xpca)
+    # ds.scalogramEstimationCenter()
+
+    ds.datasetFolders()
+    ds.createImageDS()
+
+
+
+
+
+    # prepare raw data for Convolution Neural Net
+    X, Y = ds.Data4CNN()
     """ Train path for Very Short-Term forecasting """
     shrtTerm = shrtTrainPath(ds=ds)
     return ds, X,Y

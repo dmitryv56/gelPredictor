@@ -56,7 +56,7 @@ class Block(object):
                 file_png="{}__.png".format(title)
             else:
                 file_png=Path(chart_repository/Path(title)).with_suffix(".png)")
-            #   simpleScalingImgShow(scalogram = self.scalogram, index=self.index, title = title, file_png=file_png)
+            simpleScalingImgShow(scalogram = self.scalogram, index=self.index, title = title, file_png=file_png)
             return self.scalogram, self.freqs
         elif mode == 2:
             scalogram1, freqs1 = pywt.cwt(y, self.scales, self.wav)
@@ -67,6 +67,8 @@ class Block(object):
                 file_png=Path(chart_repository/Path(title)).with_suffix(".png)")
             simpleScalingImgShow(scalogram = scalogram1, index=0, title = title, file_png=file_png)
             return scalogram1, freqs1
+
+
         else:
             return None, None
         # plt.imshow(self.scalogram, extent=[-1, 1, 1, 31], cmap='PRGn', aspect='auto',

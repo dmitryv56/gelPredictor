@@ -165,7 +165,7 @@ def SolarAggrSpect():
 
     print("\n   Autocorelation {}\n".format(ts_solar_name_per_day))
     for i in range(len(corr)):
-        print("{:<3d} {:<10.4f}".format(i, corr[i]))
+        print("{:<3d} {:<12.6e}".format(i, corr[i]))
 
     spectrAgrSolar(dv1, 1.0/(1440*60))
     return

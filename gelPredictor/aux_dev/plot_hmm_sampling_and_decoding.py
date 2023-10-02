@@ -47,7 +47,7 @@ for i, m in enumerate(means):
             size=17, horizontalalignment='center',
             bbox=dict(alpha=.7, facecolor='w'))
 ax.legend(loc='best')
-fig.show()
+# fig.show()
 fig.savefig("Observations_States.png")
 
 scores = list()

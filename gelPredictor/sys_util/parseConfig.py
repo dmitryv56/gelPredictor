@@ -11,6 +11,7 @@ PROGRAM_NAME_STATEEXTRACTOR = 'stateExtract.py'
 PROGRAM_NAME_GELANALYZER    = 'gelAnalyzer.py'
 PROGRAM_NAME_GELDEMAND      = 'gelSVSPred.py'
 PROGRAM_NAME_GELCAISOLOAD   = 'gelCaISOLoad.py'
+PROGRAM_NAME_GELSTF         = 'gelSTF.py'
 
 if basename(sys.argv[0]) == PROGRAM_NAME_GELPREDICTOR:
 
@@ -31,6 +32,9 @@ elif basename(sys.argv[0]) == PROGRAM_NAME_GELCAISOLOAD :
 
     FORECASTING_OBJECT = "CAISOLoad_5state"
     FORECASTING_OBJECT_TITLE = "CAISO (2020-2023) "
+elif basename(sys.argv[0]) == PROGRAM_NAME_GELSTF :
+    FORECASTING_OBJECT = "Home_Consume"  #"CAISOLoad_ShortTerm_Forecasting"
+    FORECASTING_OBJECT_TITLE = "Home Consume(2021-2023)"  #"CAISO (2020-2023) "
 else:
     FORECASTING_OBJECT = "Forecating_object"
     FORECASTING_OBJECT_TITLE = "Forecating_object"
@@ -49,6 +53,7 @@ SERVER_LOG      = "server_{}".format(FORECASTING_OBJECT)
 CHART_LOG       = "chart_{}".format(FORECASTING_OBJECT)
 SHRT_CHART_LOG  = "shrt_chart_{}".format(FORECASTING_OBJECT)
 HMM_CHART_LOG   = "hmm_chart_{}".format(FORECASTING_OBJECT)
+WV_IMAGE_LOG    = "Wavelet_image {}".format(FORECASTING_OBJECT)
 
 if sys.platform == 'win32':
     PATH_ROOT_FOLDER = Path(Path(Path(getcwd()).drive))
@@ -71,6 +76,7 @@ PATH_SHRT_DATASETS         = Path(PATH_LOG_FOLDER / "short_term_Repository")
 PATH_SHRT_MODELS           = Path(PATH_LOG_FOLDER / "short_term_model_Repository")
 PATH_SHRT_CHARTS           = Path(PATH_LOG_FOLDER / SHRT_CHART_LOG)
 PATH_HMM_CHARTS            = Path(PATH_LOG_FOLDER / HMM_CHART_LOG)
+PATH_WV_IMAGES             = Path(PATH_LOG_FOLDER / WV_IMAGE_LOG)
 TRAIN_FOLDER               = Path(LOG_FOLDER_NAME / Path("TrainPath"))
 AUX_TRAIN_FOLDER           = Path(LOG_FOLDER_NAME / Path("AuxTrain"))
 TEST_FOLDER                = Path(LOG_FOLDER_NAME / Path("TestPath"))
@@ -85,9 +91,10 @@ PATH_SHRT_DATASETS.mkdir(         parents = True, exist_ok = True)
 PATH_SHRT_MODELS.mkdir(           parents = True, exist_ok = True)
 PATH_SHRT_CHARTS.mkdir(           parents = True, exist_ok = True)
 PATH_HMM_CHARTS.mkdir(            parents = True, exist_ok = True)
+PATH_WV_IMAGES.mkdir(             parents = True, exist_ok = True)
 TRAIN_FOLDER.mkdir(               parents = True, exist_ok = True)
 AUX_TRAIN_FOLDER.mkdir(           parents = True, exist_ok = True)
-TEST_FOLDER.mkdir(               parents = True, exist_ok = True)
+TEST_FOLDER.mkdir(                parents = True, exist_ok = True)
 
 MAX_LOG_SIZE_BYTES=5 * 1024 * 1024
 BACKUP_COUNT=2
@@ -120,6 +127,7 @@ if basename(sys.argv[0]) == PROGRAM_NAME_GELPREDICTOR :
     CONTINUOUS_WAVELET = 'mexh'  # see in imported 'pywt'-package
     # CNN Hyperparams
     NUM_CLASSES = 11
+    DETREND = False
 elif basename(sys.argv[0]) == PROGRAM_NAME_STATEEXTRACTOR :
     PATH_TO_DATASET= Path(PATH_DATASET_REPOSITORY / "ElHierro_2012_2014").with_suffix(".csv")
     TS_NAME            = "Imbalance"
@@ -140,6 +148,7 @@ elif basename(sys.argv[0]) == PROGRAM_NAME_STATEEXTRACTOR :
     CONTINUOUS_WAVELET = 'mexh'  # see in imported 'pywt'-package
     # CNN Hyperparams
     NUM_CLASSES = 11
+    DETREND = False
 elif basename(sys.argv[0]) == PROGRAM_NAME_GELANALYZER :
     PATH_TO_DATASET = Path(PATH_DATASET_REPOSITORY / "ElHierro_2012_2014").with_suffix(".csv")
     TS_NAME = "Demand"
@@ -160,6 +169,7 @@ elif basename(sys.argv[0]) == PROGRAM_NAME_GELANALYZER :
     CONTINUOUS_WAVELET = 'mexh'  # see in imported 'pywt'-package
     # CNN Hyperparams
     NUM_CLASSES = 11
+    DETREND = False
 elif basename(sys.argv[0]) == PROGRAM_NAME_GELDEMAND :
     # PATH_TO_DATASET = Path(PATH_DATASET_REPOSITORY / "ElHierro_2012_2014").with_suffix(".csv")
     PATH_TO_DATASET = Path(PATH_DATASET_REPOSITORY / "SolarPlantPowerGen_21012020_Light").with_suffix(".csv")
@@ -178,6 +188,7 @@ elif basename(sys.argv[0]) == PROGRAM_NAME_GELDEMAND :
     CONTINUOUS_WAVELET = 'mexh'  # see in imported 'pywt'-package
     # CNN Hyperparams
     NUM_CLASSES = 3
+    DETREND = False
 elif basename(sys.argv[0]) == PROGRAM_NAME_GELCAISOLOAD :
     PATH_TO_DATASET = Path(PATH_DATASET_REPOSITORY / "CAISO_Load_01012020_24042023").with_suffix(".csv")
     TS_TIMESTAMP_LABEL = "Date Time"
@@ -191,10 +202,40 @@ elif basename(sys.argv[0]) == PROGRAM_NAME_GELCAISOLOAD :
     N_STEPS = 288 # size of sliding block over ts. They form learning-data inputs for multilayer and LSTM
     # neural nets.
     NUM_SCALES = 72  # scale for wavelet
-    DATA_NORMALIZATION = 'other'  # 'norm' -normalazation 0.0-1.0; 'stat'-statistical nomalization; 'other' -no normalization
+    DATA_NORMALIZATION = 'norm'  # 'norm' -normalazation 0.0-1.0; 'stat'-statistical nomalization; 'other' -no normalization
     CONTINUOUS_WAVELET = 'mexh'  # see in imported 'pywt'-package
     # CNN Hyperparams
     NUM_CLASSES = 5
+    DETREND = False
+elif basename(sys.argv[0]) == PROGRAM_NAME_GELSTF :
+    # PATH_TO_DATASET = Path(PATH_DATASET_REPOSITORY / "CAISO_Load_01012020_24042023").with_suffix(".csv")
+    # TS_TIMESTAMP_LABEL = "Date Time"
+    # TS_NAME = "Load"
+    # TS_GENERATION_NAME = "Diesel"
+    # TS_DEMAND_NAME = "Day_In_Week"
+    # # TS hypeparameters
+    # SAMPLING = 5 * 60  # 10 * 60  #
+    # SEGMENT_SIZE = 288  # 144  #
+    # OVERLAP = 0
+    # N_STEPS = 288 # size of sliding block over ts. They form learning-data inputs for multilayer and LSTM
+
+    PATH_TO_DATASET = Path(PATH_DATASET_REPOSITORY / "HomeConsume").with_suffix(".csv")
+    TS_TIMESTAMP_LABEL = "Date Time"
+    TS_NAME = "Consumo_(Wh)"
+    TS_GENERATION_NAME = "Home_Consume"
+    TS_DEMAND_NAME = "Day_In_Week"
+    # TS hypeparameters
+    SAMPLING = 60 * 60  # 10 * 60  #
+    SEGMENT_SIZE = 24  # 144  #
+    OVERLAP = 0
+    N_STEPS = 48  # size of sliding block over ts. They form learning-data inputs for multilayer and LSTM
+    # neural nets.
+    NUM_SCALES = 24  # scale for wavelet
+    DATA_NORMALIZATION = 'norm'  # 'norm' -normalazation 0.0-1.0; 'stat'-statistical nomalization; 'other' -no normalization
+    CONTINUOUS_WAVELET = 'mexh'  # see in imported 'pywt'-package
+    # CNN Hyperparams
+    NUM_CLASSES = 5
+    DETREND = False
 else:
     PATH_TO_DATASET = Path(PATH_DATASET_REPOSITORY / "ElHierro_2012_2014").with_suffix(".csv")
     TS_NAME = "Imbalance"
@@ -215,6 +256,7 @@ else:
     CONTINUOUS_WAVELET = 'mexh'  # see in imported 'pywt'-package
     # CNN Hyperparams
     NUM_CLASSES = 10
+    DETREND = False
 
 # CNN Hyperparams
 BATCH_SIZE   = 64
@@ -228,28 +270,6 @@ TRAIN_RATIO  = 0.750
 VAL_RATIO    = 0.245
 COMPRESS     = 'no'  # 'pca'   or 'no'
 N_COMPONENTS = 2
-
-# TS
-# German Electricity
-#TS_NAME = "Wind_offshore_50Hertz"
-
-# Power Solar
-# TS_NAME            = "Power_Solar"
-# TS_TIMESTAMP_LABEL = "Date Time"
-#
-# # TS hypeparameters
-# SAMPLING           = 60 * 60  #  German Electricity15 * 60
-# SEGMENT_SIZE       = 16 # 96  # size of segments over ts. The segment are being transformed to scalograms.
-# OVERLAP            = 0        # sigments overlap. If 0 then the sigments are adjacent and number of segments over TS
-#                               # is [n/n_step].
-#                               # If 0 < overlap < n_step then  number of segment is the following sum
-#                               #  while (n-k*overlap<=n_step):
-#                               #         nn=nn+[n-k*overlap)/n_step] , where k=0,1,..
-# N_STEPS             = 16      # size of sliding block over ts. They form learning-data inputs for multilayer and LSTM
-#                               # neural nets.
-# NUM_SCALES          = 12      # scale for wavelet
-# DATA_NORMALIZATION  = 'stat'  # 'norm' -normalazation 0.0-1.0; 'stat'-statistical nomalization; 'other' -no normalization
-# CONTINUOUS_WAVELET  = 'mexh'  # see in imported 'pywt'-package
 
 
 # Short-Term forecasting ANN

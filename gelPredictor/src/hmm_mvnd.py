@@ -13,7 +13,7 @@ training dataset, where i - is an state index.
     The HMM is completely determined by P,A, TETA(i) , i = 0,1, number_of_states-1."""
 
 import sys
-
+import logging
 from pathlib import Path
 from hmmlearn.hmm import GaussianHMM
 import numpy as np
@@ -23,12 +23,28 @@ import matplotlib.pyplot as plt
 
 from src.pca import PCA_
 
+logger = logging.getLogger(__name__)
+
 PATH_TO_CSV="~/LaLaguna/gelPredictor/dataset_Repository/CAISO_Load_01012020_24042023.csv"
 
 class HMMmvndemis():
-    pass
+    """ This class is initialized by following:
+    y - time series of observations for demand electricity
+    dt - snapshots for observations.
+    n_features - number of observations in the segment(day).
+    n_states - number of hidden states.
+
+    The time series (TS) y(t)in our model can be represented as X(i,j), where j=0,1,..,n_features -1, i=0,1,2,..
+    X -matrix whose rows are days(segn\ments), and whose columns correspond to intraday measurments, i.e., X(2,5) is
+    5th measurment (observation) in 2th day.
+    The segment(day) may belong to one from n_states possible states.
+
+    The methods of the class evaluate the  sequence of the segment states that satisfies multivariate normal (Gaussian)
+    observations of n_feature dimension according the maximum likelihood criterion.
+
+    """
     def __init__(self,y:np.array=None, dt:np.array = None, n_features:int=16, n_states:int=3, log_folder:Path = None ,
-                 title:str="CaISO"):
+                 chart_folder:Path = None, norm:str='norm', title:str="CaISO"):
         if y is None:
             sys.exit(-1)
         self.n_features=n_features
@@ -39,6 +55,9 @@ class HMMmvndemis():
         self.n_samples=int(n/self.n_features)
         self.X=y[:self.n_samples * self.n_features].reshape(self.n_samples, self.n_features)
         self.log_folder=log_folder
+        self.chart_folder = chart_folder
+        self.log = logger
+        self.norm = norm
         self.title = title
         if dt is None:
             self.dt=np.array([str(i) for i in range( self.n_samples * self.n_features)])
@@ -49,7 +68,7 @@ class HMMmvndemis():
         self.y_min = np.zeros(self.n_samples, dtype=float)
         self.y_max = np.zeros(self.n_samples, dtype=float)
         self.obs_simple_stat()
-        self.obs_norm()
+        self.obs_norm(y=y)
 
         self.clusters = DataCluster(num_classes=self.n_states)
         n_iter, n_features_in, self.inertia_, self.state_sequence, self.means = self.clusters.fit(X=self.X)
@@ -71,8 +90,11 @@ class HMMmvndemis():
             self.y_max[i] = self.X[i, :].max()
         #     charts & logs
         (n,m)=self.X.shape
+        if self.log_folder is None:
+            file_stats = Path("{}_per_segment_statistics".format(self.title)).with_suffix(".txt")
+        else:
+            file_stats = Path(self.log_folder / Path("{}_per_segment_statistics".format(self.title))).with_suffix(".txt")
 
-        file_stats = Path("{}_per_segment_statistics".format(self.title)).with_suffix(".txt")
         with open(file_stats, 'w') as fout:
             msg ="{:^5s} {:^30s} {:<12s} {:<12s} {:<12s} {:<12s}\n".format(" ##  ","Timestamp","Mean","Std",
                                                                                        "Min","Max")
@@ -81,7 +103,13 @@ class HMMmvndemis():
                 msg = "{:>5d} {:<30s} {:<12.6e} {:<12.6e} {:<12.6e} {:<12.6e}\n".format(i,self.dt[i*m], \
                         self.y_mean[i],self.y_std[i], self.y_min[i], self.y_max[i])
                 fout.write(msg)
+            self.log.info("Simple statistics estimation are put in {}".format(file_stats))
+
         # Plot the sampled data
+        if self.chart_folder is None:
+            chart_stats = Path("{}_Statistics_per_Day".format(self.title)).with_suffix(".png")
+        else:
+            chart_stats = Path(self.log_folder / Path("_Statistics_per_Day".format(self.title))).with_suffix(".png")
         plt.rcParams["figure.figsize"] = [7.50, 3.50]
         plt.rcParams["figure.autolayout"] = True
         x=np.array([i for i in range(n)])
@@ -90,17 +118,77 @@ class HMMmvndemis():
         plt.plot(x,  self.y_min, label = "min daily power", alpha=0.7)
         plt.plot(x,  self.y_max, label = "max daily power", alpha=0.7)
         plt.legend(loc='best')
-        plt.show()
-        plt.savefig("{}_Statistics_per_Day.png".format(self.title))
+        # plt.show()
+        plt.savefig(chart_stats)
         plt.close("all")
+        self.log.info("Simple statistics estimation charts are put in {}".format(chart_stats))
         return
 
-    def obs_norm(self):
+    def obs_norm(self, y:np.array =None):
         """ The observations in the 2D matrix - normalization (-1.0 ...+1.0) """
 
         self.minmin, self.maxmax = self.X.min(), self.X.max()
 
-        self.X=(self.X -self.minmin)/(self.maxmax-self.minmin)
+        if self.norm == 'norm':
+            self.X=(self.X -self.minmin)/(self.maxmax-self.minmin)
+            self.log.info("Normalization -1.0 .. +1.0 : minmin : {:<12.6e} maxmax : {:<12.6e}".format( self.minmin, \
+                                                                                                   self.maxmax))
+            if self.log_folder is None:
+                file_norm = Path("{}_norm_tc".format(self.title)).with_suffix(".txt")
+            else:
+                file_norm = Path(self.log_folder / Path("{}_norm_tc".format(self.title))).with_suffix(".txt")
+
+            if y is None:
+                self.log.error("TS is not passed for logging")
+                return
+            with open(file_norm,'w') as fout:
+                #    "{:^5s} {:^30s} {:<12s} {:<12s} {:<12s} {:<12s}\n"
+                msg ="{:^5s} {:^5s} {:^9s} {:^30s} {:<12s} {:<12s}\n".format("Ind", "Day", "Intraday"," Timestamp",\
+                                                                             "Value","Norm Value")
+                fout.write(msg)
+                denominator = self.maxmax-self.minmin
+                ynorm = (y - self.minmin) / denominator
+                for ind in range(len(y)):
+                    day=int(ind/self.n_features)
+                    intraday = ind % self.n_features
+
+                    # "{:^5s} {:^30s} {:<12s} {:<12s} {:<12s} {:<12s}\n"
+                    msg = "{:>5d} {:>5d} {:>9d} {:<30s} {:<12.6e} {:<12.6e}\n".format(ind, day, intraday, self.dt[ind],\
+                                                                                      y[ind], ynorm[ind])
+                    fout.write(msg)
+                self.log.info("Normalized TS put in {}".format(file_norm))
+
+            if self.chart_folder is None:
+                chart_norm = Path("{}_norm_tc".format(self.title)).with_suffix(".png")
+                chart_ts = Path("{}_tc".format(self.title)).with_suffix(".png")
+            else:
+                chart_norm = Path(self.log_folder / Path("{}_norm_tc".format(self.title))).with_suffix(".png")
+                chart_ts = Path(self.log_folder / Path("{}_tc".format(self.title))).with_suffix(".png")
+
+            plt.rcParams["figure.figsize"] = [12.50, 3.50]
+            plt.rcParams["figure.autolayout"] = True
+            x = np.array([i for i in range(len(y))])
+
+            plt.plot(x, ynorm, label="Normalized TS values", alpha=0.7)
+
+            plt.legend(loc='best')
+            # plt.show()
+            plt.savefig(chart_norm)
+            plt.close("all")
+            self.log.info("Nomalized TS values  are put in {}".format(chart_norm))
+
+            plt.rcParams["figure.figsize"] = [12.50, 3.50]
+            plt.rcParams["figure.autolayout"] = True
+
+            plt.plot(x, y, label="TS values", alpha=0.7)
+
+            plt.legend(loc='best')
+            # plt.show()
+            plt.savefig(chart_ts)
+            plt.close("all")
+            self.log.info("TS values  are put in {}".format(chart_ts))
+
+        return
 
 
     def pai_fit(self):
@@ -108,11 +196,20 @@ class HMMmvndemis():
 
         (n,)=self.state_counts.shape
         if (n<self.n_states):
-            print("Missing states - exit")
+            self.log.error("Missing states - exit")
             sys.exit(-3)
 
         sum_ = self.state_counts.sum()
         self.pai=np.array([float(self.state_counts[i]/sum_) for i in range(self.n_states)], dtype=float)
+        if self.log_folder is None:
+            file_pai = Path("{}_initial probabilities_Pai".format(self.title)).with_suffix(".txt")
+        else:
+            file_pai = Path(self.log_folder / Path("{}_initial probabilities_Pai".format(self.title))).with_suffix(".txt")
+
+        with open(file_pai, 'w') as fout:
+            for i in range (self.n_states):
+                fout.write("{:<3d}  {:<12.6e")
+            self.log.info("Initial Probabilities are pu in {}".format(file_pai))
         return
 
     def transition_fit(self):
@@ -120,9 +217,12 @@ class HMMmvndemis():
 
         if len(self.state_sequence) == 0 or len(self.states) == 0:
             # logger.error("{} invalid arguments".format(transitionsMLE.__name__))
+            self.log.error("State sequence length :{} Number of States : {} - exit. ".format(len(self.state_sequence), \
+                                                                                       len(self.states)))
             return None
         if self.state_counts[self.state_sequence[-1]] == 1 :
             # Note: If some state appears only once one as last item in seqiuence then this state will loss.
+            self.log.error("some state appears only once one as last item in seqiuence, state shall loss - exit. ")
             sys.exit(-4)
             # Denominators are counts of state occurence along sequence without last item.
         _, denominators = np.unique(self.state_sequence[:-1], return_counts=True)
@@ -142,6 +242,28 @@ class HMMmvndemis():
                 msg = msg + "{} ".format(self.transition[statei][statej])
             message = f"""{msg}"""
             # logger.info(message)
+            self.logTransition()
+        return
+
+    def logTransition(self):
+
+        if self.log_folder is None:
+            file_trans = Path("{}_transition probabilities".format(self.title)).with_suffix(".txt")
+        else:
+            file_trans = Path(self.log_folder / Path("{}_transition probabilities_".format(self.title))).with_suffix(".txt")
+        msg = "  "
+        for i in range(len(self.states)):
+            msg = msg + " {:^10d}".format(i)
+        msg = msg + "\n"
+        with open(file_trans, 'w') as fout:
+            fout.write(msg)
+            for i in range(len(self.states)):
+                msg = "{:>3d}".format(i)
+                for j in range(len(self.states)):
+                    msg = msg + " {:<12.6f}".format(self.transition[i][j])
+                msg = msg + "\n"
+                fout.write(msg)
+            self.log.info("Transition Probabilities matrix is put in {}".format(file_trans))
         return
 
     def covar_estimation(self)->np.array:
@@ -175,12 +297,17 @@ class HMMmvndemis():
         plt.rcParams["figure.autolayout"] = True
         x = np.array([i for i in range(self.n_samples)])
         plt.plot(x, self.vitterbi, label="Decoded sequence states", alpha=0.7)
-        plt.plot(x, self.state_sequence, label="Sequencr states", alpha=0.7)
+        plt.plot(x, self.state_sequence, label="Sequence states", alpha=0.7)
 
         plt.legend(loc='best')
-        plt.show()
-        plt.savefig("{}_{}_State_Decoded_States.png".format(self.title,self.n_states))
+        # plt.show()
+        if self.chart_folder is None:
+            decode_png = Path("{}_{}_State_Decoded_States".format(self.title,self.n_states)).with_suffix(".png")
+        else:
+            decode_png = Path(self.chart_folder / Path("{}_{}_State_Decoded_States".format(self.title,self.n_states))).with_suffix(".png")
+        plt.savefig(decode_png)
         plt.close("all")
+        self.log.info("Decode sequence states chart saved in {}".format(decode_png))
 
 
     def chartTransitions(self,X:np.array):
@@ -192,8 +319,14 @@ class HMMmvndemis():
         ax.set_title('States compared to generated')
         ax.set_xlabel('Generated State')
         ax.set_ylabel('Recovered State')
-        fig.show()
-        fig.savefig("{}_Generated_Recovered_{}_States.png".format(self.title,self.n_states))
+        # fig.show()
+        if self.chart_folder is None:
+            recovered_png = Path("{}_Generated_Recovered_{}_States.".format(self.title,self.n_states)).with_suffix(".png")
+        else:
+            recovered_png = Path(self.chart_folder / Path("{}_Generated_Recovered_{}_States.".format(self.title, \
+                                                                                self.n_states))).with_suffix(".png")
+        fig.savefig(recovered_png)
+        self.log.info("Generated Recoverd States chart saved in {}".format(recovered_png))
 
         # plot the transition matrix
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 5))
@@ -206,8 +339,15 @@ class HMMmvndemis():
             ax.set_ylabel('State From')
 
         fig.tight_layout()
-        fig.show()
-        fig.savefig("{}_Generated_Recovered_Transitions_{}_States.png".format(self.title,self.n_states))
+        # fig.show()
+        if self.chart_folder is None:
+            recovered_png = Path("{}_Generated_Recovered_Transitions_{}_States".format(self.title, \
+                                                                                self.n_states)).with_suffix(".png")
+        else:
+            recovered_png = Path(self.chart_folder / Path("{}_Generated_Recovered_Transitions_{}_States".format( \
+                self.title,self.n_states))).with_suffix(".png")
+        fig.savefig(recovered_png)
+        self.log.info("Generated Recoverd Transitions States chart saved in {}".format(recovered_png))
 
         # Plot the sampled data
         fig, ax = plt.subplots()
@@ -230,9 +370,14 @@ class HMMmvndemis():
                     size=17, horizontalalignment='center',
                     bbox=dict(alpha=.7, facecolor='w'))
         ax.legend(loc='best')
-        fig.show()
-        fig.savefig("{}_Observations_{}_States.png".format(self.title,self.n_states))
-
+        # fig.show()
+        if self.chart_folder is None:
+            obs_states_png = Path("{}_Observations_{}_States".format(self.title,self.n_states)).with_suffix(".png")
+        else:
+            obs_states_png = Path(self.chart_folder / Path("{}_Observations_{}_States".format(self.title, \
+                                                                self.n_states))).with_suffix(".png")
+        fig.savefig(obs_states_png)
+        self.log.info("GObservations and  States chart saved in {}".format(obs_states_png))
 
 
 class DataCluster():
